@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import './globals.css'
+import RootShell from '@/components/layout/RootShell'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -13,9 +14,6 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'Finanzas',
-  },
-  icons: {
-    apple: '/icon-192.png',
   },
 }
 
@@ -30,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body className={inter.className}>
-        {children}
+        <RootShell>{children}</RootShell>
         <Toaster
           position="bottom-center"
           toastOptions={{
@@ -48,3 +46,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   )
 }
+
