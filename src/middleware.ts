@@ -1,6 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Middleware mínimo: solo refresca la cookie de sesión de Supabase,
+// pero NO redirige. La protección de rutas la maneja el cliente
+// (AppProvider), que sí puede leer la sesión del navegador.
+// Esto evita el rebote login -> dashboard -> login.
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -20,30 +24,8 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const path = request.nextUrl.pathname
-  const isAuthRoute = path.startsWith('/auth')
-
-  // Solo protegemos rutas conocidas de la app.
-  // Si no hay sesión y estás en una ruta protegida, te mandamos al login.
-  const protectedPrefixes = [
-    '/dashboard', '/movimientos', '/categorias', '/cuentas',
-    '/presupuestos', '/inversiones', '/historico', '/buscar', '/configuracion'
-  ]
-  const isProtected = protectedPrefixes.some(p => path.startsWith(p))
-
-  if (!user && isProtected) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
-    return NextResponse.redirect(url)
-  }
-
-  if (user && isAuthRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
-  }
+  // Solo refresca la sesión, sin redirigir a nadie.
+  await supabase.auth.getUser()
 
   return supabaseResponse
 }
