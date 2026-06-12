@@ -22,9 +22,16 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Rutas protegidas
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
-  const isProtected = !isAuthRoute && request.nextUrl.pathname !== '/'
+  const path = request.nextUrl.pathname
+  const isAuthRoute = path.startsWith('/auth')
+
+  // Solo protegemos rutas conocidas de la app.
+  // Si no hay sesión y estás en una ruta protegida, te mandamos al login.
+  const protectedPrefixes = [
+    '/dashboard', '/movimientos', '/categorias', '/cuentas',
+    '/presupuestos', '/inversiones', '/historico', '/buscar', '/configuracion'
+  ]
+  const isProtected = protectedPrefixes.some(p => path.startsWith(p))
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone()
@@ -42,5 +49,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon-.*\\.png|manifest\\.json).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon-.*\\.png|manifest\\.json|sw.js).*)'],
 }
