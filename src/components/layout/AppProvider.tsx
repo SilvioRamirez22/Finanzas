@@ -17,10 +17,17 @@ export default function AppProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     async function boot() {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const { data: { session } } = await supabase.auth.getSession()
 
-      // Cargar perfil
+      // Si no hay sesión, vamos al login (protección del lado del cliente)
+      if (!session?.user) {
+        window.location.assign('/auth/login')
+        return
+      }
+
+      const user = session.user
+
+      // Cargar perfil (si no existe, lo creamos al vuelo)
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
@@ -28,24 +35,29 @@ export default function AppProvider({ children }: { children: React.ReactNode })
         .single()
       if (profile) setProfile(profile as Profile)
 
-      // Cargar datos globales en paralelo
-      const [accounts, categories, methods, budgets] = await Promise.all([
-        getAccounts(),
-        getCategories(),
-        getPaymentMethods(),
-        getBudgets(),
-      ])
-      setAccounts(accounts)
-      setCategories(categories)
-      setPaymentMethods(methods)
-      setBudgets(budgets)
+      // Cargar datos globales en paralelo (con tolerancia a errores)
+      try {
+        const [accounts, categories, methods, budgets] = await Promise.all([
+          getAccounts(),
+          getCategories(),
+          getPaymentMethods(),
+          getBudgets(),
+        ])
+        setAccounts(accounts)
+        setCategories(categories)
+        setPaymentMethods(methods)
+        setBudgets(budgets)
+      } catch (e) {
+        // Si falla la carga de datos, igual dejamos entrar a la app vacía
+        console.error('Error cargando datos:', e)
+      }
+
       setReady(true)
     }
     boot()
   }, [])
 
   async function handleTransactionSuccess() {
-    // Recargar cuentas para actualizar balances
     const accounts = await getAccounts()
     setAccounts(accounts)
   }
