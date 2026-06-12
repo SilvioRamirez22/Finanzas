@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Wallet } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -8,22 +9,32 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
   const supabase = createClient()
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
       if (error) throw error
-      // Entró bien: lo mandamos al dashboard
-      window.location.href = '/dashboard'
+
+      // Esperamos a que la sesión esté realmente guardada antes de redirigir
+      if (data.session) {
+        // Pequeña pausa para asegurar que la cookie se escribió
+        await new Promise(resolve => setTimeout(resolve, 400))
+        // refresh() fuerza al servidor a re-evaluar la sesión
+        router.refresh()
+        // Redirigimos con recarga completa para que el middleware vea la cookie
+        window.location.assign('/dashboard')
+      } else {
+        throw new Error('No se pudo iniciar la sesión')
+      }
     } catch (e: any) {
       toast.error(e.message || 'Email o contraseña incorrectos')
-    } finally {
       setLoading(false)
     }
   }
@@ -31,7 +42,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl border border-gray-100 shadow-card p-8 w-full max-w-sm">
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-14 h-14 rounded-2xl bg-emerald-600 flex items-center justify-center mb-4">
             <Wallet size={28} className="text-white" />
@@ -51,6 +61,7 @@ export default function LoginPage() {
               onChange={e => setEmail(e.target.value)}
               placeholder="hola@ejemplo.com"
               required
+              autoComplete="email"
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400 transition-colors"
             />
           </div>
@@ -64,6 +75,7 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               placeholder="Tu contraseña"
               required
+              autoComplete="current-password"
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400 transition-colors"
             />
           </div>
