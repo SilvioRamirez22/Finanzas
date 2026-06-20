@@ -4,15 +4,9 @@ import { es } from 'date-fns/locale'
 import { DateRange } from '@/types'
 
 // ---- Moneda ----
+// Siempre muestra el monto completo sin abreviar (ej: $2.400.000).
+// El parámetro "compact" se ignora a propósito para mostrar el número entero.
 export function formatCurrency(amount: number, currency = 'ARS', compact = false): string {
-  if (compact && Math.abs(amount) >= 1_000_000) {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 1,
-      notation: 'compact',
-    }).format(amount)
-  }
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency,
@@ -31,15 +25,12 @@ export function formatDate(dateStr: string): string {
   if (isYesterday(date)) return 'Ayer'
   return format(date, 'dd MMM yyyy', { locale: es })
 }
-
 export function formatDateShort(dateStr: string): string {
   return format(parseISO(dateStr), 'dd/MM', { locale: es })
 }
-
 export function formatMonthYear(dateStr: string): string {
   return format(parseISO(dateStr), 'MMMM yyyy', { locale: es })
 }
-
 export function formatMonth(dateStr: string): string {
   return format(parseISO(dateStr), 'MMM', { locale: es })
 }
@@ -75,7 +66,6 @@ export const typeLabels: Record<string, string> = {
   expense: 'Gasto',
   transfer: 'Transferencia',
 }
-
 export const typeColors: Record<string, string> = {
   income: 'text-green-600',
   expense: 'text-red-500',
