@@ -35,11 +35,9 @@ export default function DashboardPage() {
     try {
       const { from, to } = periodToDateRange(period)
 
-      // Gastos por categoría del período
       const cats = await getExpensesByCategory(from, to)
       setCategories((cats || []).filter(c => c.total > 0))
 
-      // Sumar ingresos y gastos del período desde las transacciones
       const { data: txs } = await getTransactions(
         { date_from: from, date_to: to },
         10000, 0
@@ -58,13 +56,9 @@ export default function DashboardPage() {
 
   useEffect(() => { load() }, [load])
 
-  const totalBalance = accounts
-    .filter(a => a.is_active && !a.exclude_from_totals)
-    .reduce((s, a) => s + a.current_balance, 0)
-
+  // El "balance del período" = ingresos - gastos del período filtrado
   const net = income - expenses
 
-  // Etiqueta del período seleccionado
   let periodLabel = ''
   if (period.range === 'all') periodLabel = 'Todo el historial'
   else if (period.range === 'year') periodLabel = `Año ${period.year}`
@@ -78,10 +72,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      {/* Selector de período */}
       <PeriodSelector period={period} onChange={setPeriod} />
 
-      {/* Header del período */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">{periodLabel}</h2>
@@ -92,40 +84,39 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* KPI cards estilo KJ Finance */}
+      {/* KPI cards — todas responden al período */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard
-          label="BALANCE TOTAL"
-          value={formatCurrency(totalBalance, 'ARS', true)}
-          sub="saldo de todas las cuentas"
-          valueColor={totalBalance >= 0 ? 'text-gray-900' : 'text-red-500'}
-        />
         <KpiCard
           label="INGRESOS"
           value={formatCurrency(income, 'ARS', true)}
-          sub="sueldos, reintegros"
+          sub="del período"
           valueColor="text-emerald-600"
         />
         <KpiCard
           label="GASTOS"
           value={formatCurrency(expenses, 'ARS', true)}
-          sub="excluye transferencias"
+          sub="del período"
           valueColor="text-red-500"
         />
         <KpiCard
-          label="NETO"
+          label="RESULTADO"
           value={`${net >= 0 ? '+' : ''}${formatCurrency(net, 'ARS', true)}`}
           sub="ingresos − gastos"
           valueColor={net >= 0 ? 'text-emerald-600' : 'text-red-500'}
         />
+        <KpiCard
+          label="MOVIMIENTOS"
+          value={String(categories.reduce((s, c) => s + Number(c.transaction_count || 0), 0))}
+          sub="gastos en el período"
+          valueColor="text-gray-900"
+        />
       </div>
 
-      {/* Gastos por categoría (donut + lista) estilo referencia */}
+      {/* Gastos por categoría (donut + lista) */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <h3 className="text-sm font-medium text-gray-700 mb-4">Gastos por categoría</h3>
         {categories.length > 0 ? (
           <div className="grid md:grid-cols-2 gap-4 items-center">
-            {/* Donut */}
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie data={categories} dataKey="total" nameKey="category_name"
@@ -138,7 +129,6 @@ export default function DashboardPage() {
               </PieChart>
             </ResponsiveContainer>
 
-            {/* Lista de montos al lado */}
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {categories.map((c, i) => (
                 <div key={c.category_id} className="flex items-center justify-between text-sm">
@@ -164,9 +154,9 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Cuentas */}
+      {/* Saldo de cuentas (informativo, no es el balance del período) */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Cuentas</h3>
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Saldo actual de cuentas</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
           {accounts.filter(a => a.is_active).map(account => (
             <div key={account.id}
