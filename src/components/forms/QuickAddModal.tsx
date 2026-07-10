@@ -3,10 +3,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X, ChevronDown, Plus } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { createTransaction } from '@/lib/api'
-import { todayISO } from '@/lib/format'
+import { todayISO, formatCurrency } from '@/lib/format'
 import toast from 'react-hot-toast'
 import type { TransactionFormData } from '@/types'
 
@@ -32,9 +32,9 @@ interface QuickAddProps {
 }
 
 export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProps) {
-  const { accounts, categories, paymentMethods, profile, categoriesWithSubs } = useAppStore()
+  const { accounts, paymentMethods, profile, categoriesWithSubs } = useAppStore()
   const [submitting, setSubmitting] = useState(false)
-  const amountRef = useRef<HTMLInputElement>(null)
+  const amountRef = useRef<HTMLInputElement | null>(null)
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormData>({
     resolver: zodResolver(schema) as any,
@@ -49,15 +49,15 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
   const type = watch('type')
   const categoryId = watch('category_id')
   const hasInstallments = watch('has_installments')
+  const amountWatch = watch('amount')
+  const installmentsWatch = watch('installments_total')
 
-  // Focus al abrir
   useEffect(() => {
     if (open) {
       setTimeout(() => amountRef.current?.focus(), 100)
     }
   }, [open])
 
-  // Reset al cerrar
   useEffect(() => {
     if (!open) reset({ type: 'expense', date: todayISO(), has_installments: false })
   }, [open])
@@ -68,6 +68,11 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
   const filteredCategories = categoriesWithSubs().filter(c =>
     type === 'income' ? c.type !== 'expense' : c.type !== 'income'
   )
+
+  // Total estimado si es en cuotas (monto x cantidad)
+  const cuotaTotal = hasInstallments && amountWatch && installmentsWatch
+    ? parseFloat(amountWatch) * installmentsWatch
+    : null
 
   async function onSubmit(data: TransactionFormData) {
     if (!profile) return
@@ -91,12 +96,10 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[95vh] overflow-y-auto shadow-xl">
 
-        {/* Handle mobile */}
         <div className="sm:hidden flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-gray-200" />
         </div>
 
-        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100">
           <h2 className="font-semibold text-gray-900">Nuevo movimiento</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -126,7 +129,7 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
             ))}
           </div>
 
-          {/* Monto — campo prominente */}
+          {/* Monto */}
           <div>
             <div className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 transition-colors ${
               errors.amount ? 'border-red-300' : 'border-gray-200 focus-within:border-emerald-400'
@@ -146,6 +149,11 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
                 className="flex-1 text-3xl font-semibold text-gray-900 outline-none bg-transparent placeholder-gray-300"
               />
             </div>
+            {hasInstallments && (
+              <p className="text-xs text-gray-500 mt-1">
+                Este es el valor de <b>cada cuota</b>
+              </p>
+            )}
             {errors.amount && <p className="text-xs text-red-500 mt-1">{errors.amount.message}</p>}
           </div>
 
@@ -160,7 +168,7 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
             {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description.message}</p>}
           </div>
 
-          {/* Fecha + Cuenta en grid */}
+          {/* Fecha + Cuenta */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Fecha</label>
@@ -185,7 +193,7 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
             </div>
           </div>
 
-          {/* Categoría */}
+          {/* Categoría + Subcategoría */}
           {type !== 'transfer' && (
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -193,10 +201,6 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
                 <select
                   {...register('category_id')}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-emerald-400 bg-white"
-                  onChange={e => {
-                    setValue('category_id', e.target.value)
-                    setValue('subcategory_id', '')
-                  }}
                 >
                   <option value="">Sin categoría</option>
                   {filteredCategories.map(c => (
@@ -251,7 +255,7 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
             </select>
           </div>
 
-          {/* Cuotas (solo gastos) */}
+          {/* Cuotas */}
           {type === 'expense' && (
             <div className="bg-gray-50 rounded-xl p-3">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -264,7 +268,7 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
               </label>
               {hasInstallments && (
                 <div className="mt-3">
-                  <label className="text-xs text-gray-500 mb-1 block">Número de cuotas</label>
+                  <label className="text-xs text-gray-500 mb-1 block">Cantidad de cuotas</label>
                   <input
                     type="number"
                     min={2}
@@ -273,8 +277,13 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
                     {...register('installments_total', { valueAsNumber: true })}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-400"
                   />
+                  {cuotaTotal !== null && !isNaN(cuotaTotal) && (
+                    <p className="text-xs text-emerald-700 mt-2 font-medium">
+                      {installmentsWatch} cuotas de {formatCurrency(parseFloat(amountWatch))} = {formatCurrency(cuotaTotal)} total
+                    </p>
+                  )}
                   <p className="text-xs text-gray-400 mt-1">
-                    Se crearán las cuotas futuras automáticamente
+                    Se crean las cuotas futuras automáticamente, una por mes
                   </p>
                 </div>
               )}
@@ -310,3 +319,4 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
     </div>
   )
 }
+
