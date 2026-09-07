@@ -1,9 +1,15 @@
 -- ============================================================
--- FINANZAS PERSONALES — INSTALACIÓN COMPLETA EN UN SOLO ARCHIVO
+-- FINANZAS PERSONALES — INSTALACIÓN COMPLETA
 -- ============================================================
--- Pegá TODO este archivo en el SQL Editor de Supabase y ejecutalo
--- una sola vez. Crea todo: tablas, seguridad, funciones, y carga
--- automática de categorías al registrarte (sin pasos manuales).
+-- Este archivo refleja el estado REAL de la base en producción
+-- (proyecto Supabase wkerkhekdapwvmqtzurd), verificado el 2026-09-07.
+--
+-- La versión anterior estaba desactualizada: le faltaba el trigger
+-- que completa user_id y tenía las funciones RPC con una firma
+-- (p_user_id) que la app ya no usa. Instalar aquella versión sobre
+-- una base limpia dejaba la app rota.
+--
+-- Pegar entero en el SQL Editor de Supabase y ejecutar una vez.
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -161,6 +167,7 @@ CREATE INDEX idx_categories_user ON categories(user_id, parent_id);
 
 -- ============================================================
 -- SEGURIDAD (cada usuario ve solo sus datos)
+-- Nombres y WITH CHECK tal como están en producción.
 -- ============================================================
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
@@ -172,51 +179,84 @@ ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investment_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE month_snapshots ENABLE ROW LEVEL SECURITY;
 
-DO $$
+DO $policies$
 DECLARE t TEXT;
 BEGIN
   FOREACH t IN ARRAY ARRAY['accounts','categories','payment_methods','budgets','transactions','investments','investment_transactions','month_snapshots']
   LOOP
-    EXECUTE format('CREATE POLICY "user_own_%s" ON %s FOR ALL USING (user_id = auth.uid())', t, t);
+    EXECUTE format(
+      'CREATE POLICY "own_%s" ON %s FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid())',
+      t, t);
   END LOOP;
-END $$;
+END $policies$;
 
-CREATE POLICY "user_own_profiles" ON profiles FOR ALL USING (id = auth.uid());
+CREATE POLICY "own_profiles" ON profiles FOR ALL
+  USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+
+-- ============================================================
+-- user_id AUTOMÁTICO
+-- La app no manda user_id en ningún INSERT (ver src/lib/api.ts):
+-- lo completa este trigger. Sin esto, cargar un movimiento falla.
+-- ============================================================
+CREATE OR REPLACE FUNCTION set_user_id_on_insert()
+RETURNS TRIGGER AS $fn$
+BEGIN
+  IF NEW.user_id IS NULL THEN NEW.user_id := auth.uid(); END IF;
+  RETURN NEW;
+END;
+$fn$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DO $triggers$
+DECLARE t TEXT;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['accounts','categories','payment_methods','budgets','transactions','investments','investment_transactions','month_snapshots']
+  LOOP
+    EXECUTE format(
+      'CREATE TRIGGER trg_set_user_id BEFORE INSERT ON %s FOR EACH ROW EXECUTE FUNCTION set_user_id_on_insert()', t);
+  END LOOP;
+END $triggers$;
 
 -- ============================================================
 -- TRIGGERS: updated_at + balance automático
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $fn$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
-$$ LANGUAGE plpgsql;
+$fn$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_profiles_updated BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_accounts_updated BEFORE UPDATE ON accounts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_transactions_updated BEFORE UPDATE ON transactions FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_investments_updated BEFORE UPDATE ON investments FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+-- Recalcula el saldo de TODAS las cuentas afectadas. A diferencia de
+-- la versión vieja, cubre también la cuenta DESTINO de una transferencia.
 CREATE OR REPLACE FUNCTION recalculate_account_balance()
-RETURNS TRIGGER AS $$
-DECLARE v_account_id UUID;
+RETURNS TRIGGER AS $fn$
+DECLARE v_id UUID;
 BEGIN
-  v_account_id := COALESCE(OLD.account_id, NEW.account_id);
-  UPDATE accounts SET current_balance = (
-    SELECT initial_balance + COALESCE(SUM(
-      CASE
-        WHEN type = 'income' THEN amount
-        WHEN type = 'expense' THEN -amount
-        WHEN type = 'transfer' AND account_id = v_account_id THEN -amount
-        WHEN type = 'transfer' AND transfer_to_account_id = v_account_id THEN amount
-        ELSE 0
-      END), 0)
-    FROM transactions
-    WHERE (account_id = v_account_id OR transfer_to_account_id = v_account_id)
-      AND status != 'cancelled' AND user_id = accounts.user_id)
-  WHERE id = v_account_id;
-  RETURN NEW;
+  FOREACH v_id IN ARRAY ARRAY[
+    CASE WHEN TG_OP <> 'INSERT' THEN OLD.account_id END,
+    CASE WHEN TG_OP <> 'INSERT' THEN OLD.transfer_to_account_id END,
+    CASE WHEN TG_OP <> 'DELETE' THEN NEW.account_id END,
+    CASE WHEN TG_OP <> 'DELETE' THEN NEW.transfer_to_account_id END]
+  LOOP
+    CONTINUE WHEN v_id IS NULL;
+    UPDATE accounts a SET current_balance = a.initial_balance + COALESCE((
+      SELECT SUM(CASE
+        WHEN t.type = 'income'  THEN t.amount
+        WHEN t.type = 'expense' THEN -t.amount
+        WHEN t.type = 'transfer' AND t.account_id = a.id THEN -t.amount
+        WHEN t.type = 'transfer' AND t.transfer_to_account_id = a.id THEN t.amount
+        ELSE 0 END)
+      FROM transactions t
+      WHERE (t.account_id = a.id OR t.transfer_to_account_id = a.id)
+        AND t.status <> 'cancelled' AND t.user_id = a.user_id), 0)
+    WHERE a.id = v_id;
+  END LOOP;
+  RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$fn$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_balance_insert AFTER INSERT ON transactions FOR EACH ROW EXECUTE FUNCTION recalculate_account_balance();
 CREATE TRIGGER trg_balance_update AFTER UPDATE ON transactions FOR EACH ROW EXECUTE FUNCTION recalculate_account_balance();
@@ -224,8 +264,11 @@ CREATE TRIGGER trg_balance_delete AFTER DELETE ON transactions FOR EACH ROW EXEC
 
 -- ============================================================
 -- VISTA Y FUNCIONES DE CONSULTA
+-- security_invoker = true: sin esto la vista corre con permisos de
+-- su dueño (postgres) y se saltea el RLS de transactions.
 -- ============================================================
-CREATE OR REPLACE VIEW transactions_full AS
+CREATE OR REPLACE VIEW transactions_full
+WITH (security_invoker = true) AS
 SELECT t.*,
   a.name AS account_name, a.color AS account_color, a.icon AS account_icon, a.type AS account_type,
   c.name AS category_name, c.color AS category_color, c.icon AS category_icon,
@@ -239,8 +282,10 @@ LEFT JOIN categories sc ON t.subcategory_id = sc.id
 LEFT JOIN payment_methods pm ON t.payment_method_id = pm.id
 LEFT JOIN accounts ta ON t.transfer_to_account_id = ta.id;
 
-CREATE OR REPLACE FUNCTION get_month_summary(p_user_id UUID, p_year INT, p_month INT)
-RETURNS TABLE(total_income NUMERIC, total_expenses NUMERIC, net_balance NUMERIC, transaction_count BIGINT) AS $$
+-- OJO: estas tres funciones NO reciben p_user_id — filtran por el
+-- usuario autenticado. Así las llama src/lib/api.ts.
+CREATE OR REPLACE FUNCTION get_month_summary(p_year INT, p_month INT)
+RETURNS TABLE(total_income NUMERIC, total_expenses NUMERIC, net_balance NUMERIC, transaction_count BIGINT) AS $fn$
 BEGIN
   RETURN QUERY
   SELECT
@@ -249,32 +294,33 @@ BEGIN
     COALESCE(SUM(CASE WHEN type = 'income' THEN amount WHEN type = 'expense' THEN -amount ELSE 0 END), 0),
     COUNT(*)
   FROM transactions
-  WHERE user_id = p_user_id
+  WHERE user_id = auth.uid()
     AND EXTRACT(YEAR FROM date) = p_year AND EXTRACT(MONTH FROM date) = p_month
-    AND status != 'cancelled';
+    AND status <> 'cancelled';
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$fn$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-CREATE OR REPLACE FUNCTION get_expenses_by_category(p_user_id UUID, p_start_date DATE, p_end_date DATE)
+CREATE OR REPLACE FUNCTION get_expenses_by_category(p_start_date DATE, p_end_date DATE)
 RETURNS TABLE(category_id UUID, category_name TEXT, category_color TEXT, category_icon TEXT,
-  total NUMERIC, transaction_count BIGINT, budget_amount NUMERIC, budget_percentage NUMERIC) AS $$
+  total NUMERIC, transaction_count BIGINT, budget_amount NUMERIC, budget_percentage NUMERIC) AS $fn$
 BEGIN
   RETURN QUERY
   SELECT c.id, c.name, c.color, c.icon,
     COALESCE(SUM(t.amount), 0), COUNT(t.id), b.amount,
     CASE WHEN b.amount > 0 THEN ROUND((COALESCE(SUM(t.amount), 0) / b.amount) * 100, 1) ELSE NULL END
   FROM categories c
-  LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = p_user_id
-    AND t.date BETWEEN p_start_date AND p_end_date AND t.type = 'expense' AND t.status != 'cancelled'
-  LEFT JOIN budgets b ON b.category_id = c.id AND b.user_id = p_user_id AND b.is_active = TRUE
-  WHERE c.user_id = p_user_id AND c.parent_id IS NULL AND c.type IN ('expense', 'both')
+  LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = auth.uid()
+    AND t.date BETWEEN p_start_date AND p_end_date AND t.type = 'expense' AND t.status <> 'cancelled'
+  LEFT JOIN budgets b ON b.category_id = c.id AND b.user_id = auth.uid() AND b.is_active = TRUE
+    AND b.start_date <= p_end_date AND (b.end_date IS NULL OR b.end_date >= p_start_date)
+  WHERE c.user_id = auth.uid() AND c.parent_id IS NULL AND c.type IN ('expense', 'both')
   GROUP BY c.id, c.name, c.color, c.icon, b.amount
   ORDER BY 5 DESC;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$fn$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-CREATE OR REPLACE FUNCTION get_monthly_evolution(p_user_id UUID, p_months INT DEFAULT 12)
-RETURNS TABLE(year INT, month INT, month_label TEXT, total_income NUMERIC, total_expenses NUMERIC, net_balance NUMERIC) AS $$
+CREATE OR REPLACE FUNCTION get_monthly_evolution(p_months INT DEFAULT 12)
+RETURNS TABLE(year INT, month INT, month_label TEXT, total_income NUMERIC, total_expenses NUMERIC, net_balance NUMERIC) AS $fn$
 BEGIN
   RETURN QUERY
   SELECT EXTRACT(YEAR FROM date)::INT, EXTRACT(MONTH FROM date)::INT, TO_CHAR(date, 'Mon YYYY'),
@@ -282,21 +328,25 @@ BEGIN
     COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0),
     COALESCE(SUM(CASE WHEN type = 'income' THEN amount WHEN type = 'expense' THEN -amount ELSE 0 END), 0)
   FROM transactions
-  WHERE user_id = p_user_id
+  WHERE user_id = auth.uid()
     AND date >= DATE_TRUNC('month', NOW()) - INTERVAL '1 month' * (p_months - 1)
-    AND status != 'cancelled'
+    AND status <> 'cancelled'
   GROUP BY EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date), TO_CHAR(date, 'Mon YYYY')
   ORDER BY 1, 2;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$fn$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+-- Esta sí recibe p_user_id (así la llama api.ts en createTransaction).
 CREATE OR REPLACE FUNCTION create_installments(
   p_user_id UUID, p_account_id UUID, p_category_id UUID, p_subcategory_id UUID,
   p_payment_method_id UUID, p_description TEXT, p_total_amount NUMERIC,
   p_installments INT, p_start_date DATE, p_notes TEXT DEFAULT NULL)
-RETURNS UUID AS $$
+RETURNS UUID AS $fn$
 DECLARE v_installment_amount NUMERIC; v_parent_id UUID; i INT;
 BEGIN
+  IF p_user_id <> auth.uid() THEN
+    RAISE EXCEPTION 'p_user_id no coincide con el usuario autenticado';
+  END IF;
   v_installment_amount := ROUND(p_total_amount / p_installments, 2);
   INSERT INTO transactions (user_id, account_id, category_id, subcategory_id, payment_method_id,
     type, amount, date, description, notes, installments_total, installment_number, status)
@@ -310,28 +360,24 @@ BEGIN
     VALUES (p_user_id, p_account_id, p_category_id, p_subcategory_id, p_payment_method_id,
       'expense', v_installment_amount, (p_start_date + INTERVAL '1 month' * (i - 1))::DATE,
       p_description || ' (' || i || '/' || p_installments || ')',
-      p_notes, p_installments, i, v_parent_id, 'pending');
+      p_notes, p_installments, i, v_parent_id, 'confirmed');
   END LOOP;
   RETURN v_parent_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$fn$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ============================================================
 -- CARGA AUTOMÁTICA AL REGISTRARSE
--- Crea perfil + categorías + cuentas + medios de pago.
--- NO necesitás hacer ningún paso manual después de registrarte.
 -- ============================================================
 CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $fn$
 DECLARE
   uid UUID := NEW.id;
   cat_alim UUID; cat_trans UUID; cat_viv UUID; cat_serv UUID;
 BEGIN
-  -- Perfil
   INSERT INTO profiles (id, email, full_name)
   VALUES (uid, NEW.email, NEW.raw_user_meta_data->>'full_name');
 
-  -- Categorías de gasto principales
   INSERT INTO categories (user_id, name, icon, color, type, sort_order) VALUES
     (uid, 'Alimentación', 'shopping-cart', '#1D9E75', 'expense', 1) RETURNING id INTO cat_alim;
   INSERT INTO categories (user_id, name, icon, color, type, sort_order) VALUES
@@ -348,7 +394,6 @@ BEGIN
     (uid, 'Gym y deporte', 'barbell', '#5DCAA5', 'expense', 9),
     (uid, 'Otros gastos', 'dots', '#888780', 'expense', 10);
 
-  -- Subcategorías
   INSERT INTO categories (user_id, name, parent_id, icon, color, type, sort_order) VALUES
     (uid, 'Supermercado', cat_alim, 'building-store', '#1D9E75', 'expense', 1),
     (uid, 'Restaurante', cat_alim, 'tools-kitchen-2', '#1D9E75', 'expense', 2),
@@ -364,14 +409,12 @@ BEGIN
     (uid, 'Celular', cat_serv, 'device-mobile', '#888780', 'expense', 4),
     (uid, 'Streaming', cat_serv, 'player-play', '#888780', 'expense', 5);
 
-  -- Categorías de ingreso
   INSERT INTO categories (user_id, name, icon, color, type, sort_order) VALUES
     (uid, 'Sueldo', 'briefcase', '#1D9E75', 'income', 1),
     (uid, 'Freelance', 'device-laptop', '#1D9E75', 'income', 2),
     (uid, 'Inversiones', 'trending-up', '#1D9E75', 'income', 3),
     (uid, 'Otros ingresos', 'cash', '#1D9E75', 'income', 4);
 
-  -- Medios de pago
   INSERT INTO payment_methods (user_id, name, type, sort_order) VALUES
     (uid, 'Efectivo', 'cash', 1),
     (uid, 'Débito', 'debit_card', 2),
@@ -379,7 +422,6 @@ BEGIN
     (uid, 'Mercado Pago', 'digital_wallet', 4),
     (uid, 'Transferencia', 'transfer', 5);
 
-  -- Cuentas iniciales
   INSERT INTO accounts (user_id, name, type, color, icon, sort_order) VALUES
     (uid, 'Efectivo', 'cash', '#1D9E75', 'cash', 1),
     (uid, 'Cuenta bancaria', 'bank', '#378ADD', 'bank', 2),
@@ -387,12 +429,8 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$fn$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
-
--- ============================================================
--- ¡LISTO! Cuando te registres en la app, todo se carga solo.
--- ============================================================
