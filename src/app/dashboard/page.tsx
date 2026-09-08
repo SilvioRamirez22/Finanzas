@@ -1,12 +1,20 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
 import { getTransactions, getExpensesByCategory } from '@/lib/api'
 import { useAppStore } from '@/store/useAppStore'
 import { formatCurrency } from '@/lib/format'
 import type { TransactionFull, CategoryExpense } from '@/types'
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+
+// "2026-09-30" -> "30 sep"
+function shortDate(iso: string) {
+  const [, m, d] = iso.split('-')
+  return `${Number(d)} ${MESES_CORTO[Number(m) - 1]}`
+}
 
 function monthRange(year: number, month: number) {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -29,7 +37,11 @@ export default function DashboardPage() {
   const [cats, setCats] = useState<CategoryExpense[]>([])
   const [prevCats, setPrevCats] = useState<CategoryExpense[]>([])
   const [recent, setRecent] = useState<TransactionFull[]>([])
+  // Todos los movimientos del mes. Ya los traíamos para calcular los totales,
+  // asi que el detalle de cada categoría no necesita ninguna consulta extra.
+  const [allTx, setAllTx] = useState<TransactionFull[]>([])
   const [showAllCats, setShowAllCats] = useState(false)
+  const [openCat, setOpenCat] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -54,6 +66,9 @@ export default function DashboardPage() {
       setIncome(inc); setExpenses(exp)
       setTxCount((curTx.data || []).length)
       setRecent((curTx.data || []).slice(0, 5))
+      setAllTx(curTx.data || [])
+      // Al cambiar de mes no dejamos abierta la categoría del mes anterior.
+      setOpenCat(null)
 
       let pInc = 0, pExp = 0
       for (const t of (prevTx.data || [])) {
@@ -215,27 +230,43 @@ export default function DashboardPage() {
             <div className="space-y-2.5">
               {shownCats.map((c, i) => {
                 const v = catVar(c)
+                const open = openCat === c.category_id
                 return (
-                  // En el celular: nombre + monto + variación en una línea y la
-                  // barra abajo a lo ancho. En escritorio, todo en una sola fila.
-                  <div key={c.category_id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
-                    <span className="order-1 flex-1 min-w-0 truncate text-gray-700 md:flex-none md:w-32">
-                      {c.category_name}
-                    </span>
-                    <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-gray-100 rounded-sm overflow-hidden">
-                      <div className="h-full rounded-sm transition-all"
-                        style={{
-                          width: `${(c.total / maxCat) * 100}%`,
-                          background: i === 0 ? '#B54A32' : i < 3 ? '#C08268' : '#D5D2CB'
-                        }} />
-                    </div>
-                    <span className="order-2 md:order-3 text-right text-gray-900 flex-shrink-0 md:w-28"
-                          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                      {formatCurrency(c.total)}
-                    </span>
-                    <span className={`order-3 md:order-4 w-11 md:w-14 text-right text-xs flex-shrink-0 ${v.color}`}>
-                      {v.label}
-                    </span>
+                  <div key={c.category_id}>
+                    {/* En el celular: nombre + monto + variación en una línea y la
+                        barra abajo a lo ancho. En escritorio, todo en una sola fila. */}
+                    <button
+                      type="button"
+                      onClick={() => setOpenCat(open ? null : c.category_id)}
+                      aria-expanded={open}
+                      className={`w-full text-left flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm -mx-2 px-2 py-1 rounded-lg transition-colors ${
+                        open ? 'bg-gray-50' : 'hover:bg-gray-50 active:bg-gray-50'
+                      }`}
+                    >
+                      <span className="order-1 flex-1 min-w-0 flex items-center gap-1 md:flex-none md:w-32">
+                        <ChevronRight
+                          size={13}
+                          className={`flex-shrink-0 text-gray-300 transition-transform ${open ? 'rotate-90' : ''}`}
+                        />
+                        <span className="truncate text-gray-700">{c.category_name}</span>
+                      </span>
+                      <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-gray-100 rounded-sm overflow-hidden">
+                        <div className="h-full rounded-sm transition-all"
+                          style={{
+                            width: `${(c.total / maxCat) * 100}%`,
+                            background: i === 0 ? '#B54A32' : i < 3 ? '#C08268' : '#D5D2CB'
+                          }} />
+                      </div>
+                      <span className="order-2 md:order-3 text-right text-gray-900 flex-shrink-0 md:w-28"
+                            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                        {formatCurrency(c.total)}
+                      </span>
+                      <span className={`order-3 md:order-4 w-11 md:w-14 text-right text-xs flex-shrink-0 ${v.color}`}>
+                        {v.label}
+                      </span>
+                    </button>
+
+                    {open && <CategoryDetail categoryId={c.category_id} all={allTx} total={c.total} />}
                   </div>
                 )
               })}
@@ -363,3 +394,81 @@ export default function DashboardPage() {
   )
 }
 
+// Detalle de una categoría: los movimientos que arman ese total.
+//
+// Filtra en memoria con exactamente el mismo criterio que usa la funcion SQL
+// get_expenses_by_category (gastos, no canceladas, category_id de la categoria
+// raiz), asi la suma de la lista siempre coincide con el total de la barra.
+// Como los movimientos del mes ya estan cargados, abrir esto no consulta nada.
+function CategoryDetail({ categoryId, all, total }: {
+  categoryId: string
+  all: TransactionFull[]
+  total: number
+}) {
+  const txs = all
+    .filter(t =>
+      t.category_id === categoryId &&
+      t.type === 'expense' &&
+      t.status !== 'cancelled'
+    )
+    .sort((a, b) => Number(b.amount) - Number(a.amount))
+
+  const sum = txs.reduce((s, t) => s + Number(t.amount), 0)
+  // Si no cuadra con la barra, hay gastos que el detalle no esta viendo.
+  // Mejor decirlo que mostrar una lista incompleta en silencio.
+  const mismatch = Math.abs(sum - total) > 1
+
+  if (txs.length === 0) {
+    return (
+      <div className="ml-4 mt-1 mb-2 pl-3 border-l-2 border-gray-100">
+        <p className="text-xs text-gray-400 py-2">
+          No hay movimientos para mostrar en esta categoría.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="ml-4 mt-1 mb-2 pl-3 border-l-2 border-gray-100 animate-fade-in">
+      <div className="flex items-center justify-between text-[11px] text-gray-400 py-1.5">
+        <span>{txs.length} {txs.length === 1 ? 'movimiento' : 'movimientos'}</span>
+        <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+          {formatCurrency(sum)}
+        </span>
+      </div>
+
+      <div className="divide-y divide-gray-100">
+        {txs.map(t => (
+          <div key={t.id} className="flex items-start justify-between gap-3 py-1.5">
+            <div className="min-w-0">
+              <p className="text-[13px] text-gray-700 truncate">
+                {t.description}
+                {t.installments_total > 1 && (
+                  <span className="text-gray-400">
+                    {' '}({t.installment_number}/{t.installments_total})
+                  </span>
+                )}
+              </p>
+              <p className="text-[11px] text-gray-400 truncate">
+                {shortDate(t.date)}
+                {t.subcategory_name && <> · {t.subcategory_name}</>}
+                {' · '}{t.account_name}
+              </p>
+            </div>
+            <span className="text-[13px] text-gray-800 flex-shrink-0"
+                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+              {formatCurrency(Number(t.amount))}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {mismatch && (
+        <p className="text-[11px] text-amber-600 py-1.5">
+          El detalle suma {formatCurrency(sum)} y la categoría {formatCurrency(total)}.
+          Puede haber gastos cargados en una subcategoría.
+        </p>
+      )}
+    </div>
+  )
+}
