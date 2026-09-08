@@ -29,7 +29,9 @@ export const viewport: Viewport = {
   themeColor: '#059669',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  // viewportFit: cover habilita env(safe-area-inset-*), que usa el layout
+  // para no meter la navegacion abajo del indicador de inicio del iPhone.
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

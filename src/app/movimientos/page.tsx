@@ -118,15 +118,15 @@ export default function MovimientosPage() {
           value={q}
           onChange={e => setQ(e.target.value)}
           placeholder="Buscar descripción, monto o comercio"
-          className="flex-1 min-w-[220px] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500 bg-white"
+          className="w-full sm:flex-1 sm:min-w-[220px] border border-gray-200 rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm outline-none focus:border-emerald-500 bg-white"
         />
         <select value={catFilter} onChange={e => setCatFilter(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-emerald-500">
+          className="flex-1 min-w-0 sm:flex-none border border-gray-200 rounded-lg px-3 py-2.5 sm:py-2 text-sm bg-white outline-none focus:border-emerald-500">
           <option value="">Todas las categorías</option>
           {rootCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <select value={accFilter} onChange={e => setAccFilter(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-emerald-500">
+          className="flex-1 min-w-0 sm:flex-none border border-gray-200 rounded-lg px-3 py-2.5 sm:py-2 text-sm bg-white outline-none focus:border-emerald-500">
           <option value="">Todas las cuentas</option>
           {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
