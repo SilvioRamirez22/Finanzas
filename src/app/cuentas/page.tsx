@@ -64,7 +64,7 @@ export default function CuentasPage() {
     .reduce((s, a) => s + a.current_balance, 0)
 
   return (
-    <div className="p-4 lg:p-6 max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Cuentas</h1>
@@ -229,7 +229,7 @@ function AccountForm({ account, onClose, onSuccess }: {
           </div>
 
           {selectedType === 'credit_card' && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Límite</label>
                 <input {...register('credit_limit')} type="number" step="0.01"

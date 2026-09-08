@@ -1,0 +1,18 @@
+# dependencias
+/node_modules
+
+# build de Next
+/.next/
+/out/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# variables de entorno (las claves van en Vercel, no en el repo)
+.env
+.env.local
+.env*.local
+
+# varios
+.DS_Store
+*.log
+.vercel

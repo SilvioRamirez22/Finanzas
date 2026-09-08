@@ -112,79 +112,88 @@ export default function MovimientosPage() {
 
   return (
     <div className="space-y-3">
-      {/* Barra de filtros */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Barra de filtros.
+          En el celular: buscador a lo ancho y los selects en 2 columnas, en vez
+          de una fila que se desarmaba y empujaba la pagina a lo ancho. */}
+      <div className="space-y-2">
         <input
           value={q}
           onChange={e => setQ(e.target.value)}
           placeholder="Buscar descripción, monto o comercio"
-          className="flex-1 min-w-[220px] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500 bg-white"
+          className="w-full md:flex-1 md:min-w-[220px] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500 bg-white"
         />
-        <select value={catFilter} onChange={e => setCatFilter(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-emerald-500">
-          <option value="">Todas las categorías</option>
-          {rootCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select value={accFilter} onChange={e => setAccFilter(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-emerald-500">
-          <option value="">Todas las cuentas</option>
-          {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as TypeFilter)}
-          className={`border rounded-lg px-3 py-2 text-sm outline-none ${
-            typeFilter !== 'all' ? 'border-emerald-500 text-emerald-800 bg-emerald-50' : 'border-gray-200 bg-white'
-          }`}>
-          <option value="all">Todo</option>
-          <option value="expense">Solo gastos</option>
-          <option value="income">Solo ingresos</option>
-        </select>
-        <select value={amountFilter} onChange={e => setAmountFilter(e.target.value as AmountFilter)}
-          className={`border rounded-lg px-3 py-2 text-sm outline-none ${
-            amountFilter !== 'any' ? 'border-emerald-500 text-emerald-800 bg-emerald-50' : 'border-gray-200 bg-white'
-          }`}>
-          <option value="any">Cualquier monto</option>
-          <option value="gt50">Más de $50.000</option>
-          <option value="gt100">Más de $100.000</option>
-          <option value="gt500">Más de $500.000</option>
-        </select>
-        <button
-          onClick={() => setQuickAddOpen(true)}
-          className="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          + Movimiento
-        </button>
+        <div className="grid grid-cols-2 gap-2 md:flex md:items-center md:flex-wrap">
+          <select value={catFilter} onChange={e => setCatFilter(e.target.value)}
+            className="min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-emerald-500">
+            <option value="">Todas las categorías</option>
+            {rootCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select value={accFilter} onChange={e => setAccFilter(e.target.value)}
+            className="min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-emerald-500">
+            <option value="">Todas las cuentas</option>
+            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as TypeFilter)}
+            className={`min-w-0 border rounded-lg px-3 py-2 text-sm outline-none ${
+              typeFilter !== 'all' ? 'border-emerald-500 text-emerald-800 bg-emerald-50' : 'border-gray-200 bg-white'
+            }`}>
+            <option value="all">Todo</option>
+            <option value="expense">Solo gastos</option>
+            <option value="income">Solo ingresos</option>
+          </select>
+          <select value={amountFilter} onChange={e => setAmountFilter(e.target.value as AmountFilter)}
+            className={`min-w-0 border rounded-lg px-3 py-2 text-sm outline-none ${
+              amountFilter !== 'any' ? 'border-emerald-500 text-emerald-800 bg-emerald-50' : 'border-gray-200 bg-white'
+            }`}>
+            <option value="any">Cualquier monto</option>
+            <option value="gt50">Más de $50.000</option>
+            <option value="gt100">Más de $100.000</option>
+            <option value="gt500">Más de $500.000</option>
+          </select>
+          {/* En el celular ya está el botón "+" flotante del layout. */}
+          <button
+            onClick={() => setQuickAddOpen(true)}
+            className="hidden md:block bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            + Movimiento
+          </button>
+        </div>
       </div>
 
       {/* Totales de la selección */}
-      <div className="bg-white rounded-xl border border-gray-200 px-5 py-3 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-8">
+      <div className="bg-white rounded-xl border border-gray-200 px-4 md:px-5 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        {/* gap-8 fijo hacia los lados no entraba en 360px: en el celular van
+            apilados, con ingresos y gastos en dos columnas. */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-8">
           <div>
             <p className="text-[11px] text-gray-400">Resultado de la selección</p>
-            <p className={`text-xl font-semibold ${totals.net >= 0 ? 'text-emerald-800' : 'text-red-600'}`}
+            <p className={`text-xl font-semibold break-words ${totals.net >= 0 ? 'text-emerald-800' : 'text-red-600'}`}
                style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
               {totals.net >= 0 ? '+' : '−'}$ {formatCurrency(Math.abs(totals.net)).replace(/^\$\s?/, '')}
             </p>
           </div>
-          <div>
-            <p className="text-[11px] text-gray-400">Ingresos</p>
-            <p className="text-base text-gray-900" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-              {formatCurrency(totals.inc)} <span className="text-gray-400 text-xs">· {totals.incN}</span>
-            </p>
-          </div>
-          <div>
-            <p className="text-[11px] text-gray-400">Gastos</p>
-            <p className="text-base text-gray-900" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-              {formatCurrency(totals.exp)} <span className="text-gray-400 text-xs">· {totals.expN}</span>
-            </p>
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-8">
+            <div>
+              <p className="text-[11px] text-gray-400">Ingresos</p>
+              <p className="text-base text-gray-900 break-words" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                {formatCurrency(totals.inc)} <span className="text-gray-400 text-xs">· {totals.incN}</span>
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] text-gray-400">Gastos</p>
+              <p className="text-base text-gray-900 break-words" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                {formatCurrency(totals.exp)} <span className="text-gray-400 text-xs">· {totals.expN}</span>
+              </p>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={() => setGrouped(!grouped)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
+            className="flex-1 md:flex-none border border-gray-200 rounded-lg px-3 py-2 md:py-1.5 text-sm text-gray-600 hover:bg-gray-50">
             {grouped ? 'Agrupar por día' : 'Lista simple'}
           </button>
           <button onClick={() => exportTransactionsToExcel(filtered)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
+            className="flex-1 md:flex-none border border-gray-200 rounded-lg px-3 py-2 md:py-1.5 text-sm text-gray-600 hover:bg-gray-50">
             Exportar
           </button>
         </div>
@@ -192,8 +201,9 @@ export default function MovimientosPage() {
 
       {/* Tabla */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {/* Encabezado */}
-        <div className="flex items-center gap-3 px-5 py-2.5 bg-gray-50 border-b border-gray-200 text-[11px] tracking-wide text-gray-400 font-medium">
+        {/* Encabezado: solo en escritorio. En el celular cada movimiento se
+            muestra como tarjeta de dos líneas, sin columnas. */}
+        <div className="hidden md:flex items-center gap-3 px-5 py-2.5 bg-gray-50 border-b border-gray-200 text-[11px] tracking-wide text-gray-400 font-medium">
           <span className="w-6" />
           <span className="flex-1">DESCRIPCIÓN</span>
           <span className="w-36">CATEGORÍA</span>
@@ -214,7 +224,7 @@ export default function MovimientosPage() {
               s + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0)
             return (
               <div key={date}>
-                <div className="flex items-center justify-between px-5 py-2 bg-gray-50/70 border-b border-gray-100">
+                <div className="flex items-center justify-between px-4 md:px-5 py-2 bg-gray-50/70 border-b border-gray-100">
                   <span className="text-xs text-gray-500">{dayLabel(date)}</span>
                   <span className={`text-xs ${dayTotal >= 0 ? 'text-emerald-700' : 'text-gray-500'}`}
                         style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
@@ -243,32 +253,71 @@ function Row({ t, onDelete, showDate }: {
   t: TransactionFull; onDelete: () => void; showDate?: boolean
 }) {
   const isIncome = t.type === 'income'
+
+  // Las columnas fijas (w-36 + w-32 + w-32 + flex-1) pedían unos 700px de ancho.
+  // En un celular de 360px eso estiraba TODA la página y dejaba el contenido
+  // apretado en una franja con el resto en blanco: eso es lo que se veía en la
+  // captura. Ahora hay dos vistas: tarjeta en el celular, tabla en escritorio.
   return (
-    <div className="flex items-center gap-3 px-5 py-2.5 border-b border-gray-100 hover:bg-gray-50/60 group transition-colors">
-      <div className="w-6 flex-shrink-0">
-        <div className="w-5 h-5 rounded"
+    <>
+      {/* ---------- Celular ---------- */}
+      <div className="md:hidden flex items-start gap-3 px-4 py-3 border-b border-gray-100 active:bg-gray-50">
+        <div className="w-5 h-5 rounded flex-shrink-0 mt-0.5"
           style={{ background: (t.category_color || '#D1D5DB') + '40' }} />
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-sm text-gray-800 truncate">{t.description}</p>
+            <span className={`text-sm flex-shrink-0 ${isIncome ? 'text-emerald-700' : 'text-gray-900'}`}
+                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+              {isIncome ? '+' : '−'}{formatCurrency(Number(t.amount))}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-400 min-w-0">
+            {t.category_name && (
+              <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 truncate max-w-[45%]">
+                {t.category_name}
+              </span>
+            )}
+            <span className="truncate">{t.account_name}</span>
+            {showDate && <span className="flex-shrink-0">· {t.date}</span>}
+          </div>
+        </div>
+
+        {/* En touch no existe el hover, así que el botón se ve siempre. */}
+        <button onClick={onDelete} aria-label="Eliminar"
+          className="text-gray-300 active:text-red-500 px-1 -mr-1 flex-shrink-0 text-sm">
+          ···
+        </button>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-gray-800 truncate">{t.description}</p>
-        {showDate && <p className="text-[11px] text-gray-400">{t.date}</p>}
+
+      {/* ---------- Escritorio ---------- */}
+      <div className="hidden md:flex items-center gap-3 px-5 py-2.5 border-b border-gray-100 hover:bg-gray-50/60 group transition-colors">
+        <div className="w-6 flex-shrink-0">
+          <div className="w-5 h-5 rounded"
+            style={{ background: (t.category_color || '#D1D5DB') + '40' }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-gray-800 truncate">{t.description}</p>
+          {showDate && <p className="text-[11px] text-gray-400">{t.date}</p>}
+        </div>
+        <div className="w-36 flex-shrink-0">
+          {t.category_name && (
+            <span className="inline-block px-2 py-0.5 rounded text-xs text-gray-600 bg-gray-100 truncate max-w-full">
+              {t.category_name}
+            </span>
+          )}
+        </div>
+        <span className="w-32 text-sm text-gray-500 truncate flex-shrink-0">{t.account_name}</span>
+        <span className={`w-32 text-right text-sm flex-shrink-0 ${isIncome ? 'text-emerald-700' : 'text-gray-900'}`}
+              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+          {isIncome ? '+' : '−'}{formatCurrency(Number(t.amount))}
+        </span>
+        <button onClick={onDelete}
+          className="w-8 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all text-sm flex-shrink-0">
+          ···
+        </button>
       </div>
-      <div className="w-36 flex-shrink-0">
-        {t.category_name && (
-          <span className="inline-block px-2 py-0.5 rounded text-xs text-gray-600 bg-gray-100 truncate max-w-full">
-            {t.category_name}
-          </span>
-        )}
-      </div>
-      <span className="w-32 text-sm text-gray-500 truncate flex-shrink-0">{t.account_name}</span>
-      <span className={`w-32 text-right text-sm flex-shrink-0 ${isIncome ? 'text-emerald-700' : 'text-gray-900'}`}
-            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-        {isIncome ? '+' : '−'}{formatCurrency(Number(t.amount))}
-      </span>
-      <button onClick={onDelete}
-        className="w-8 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all text-sm flex-shrink-0">
-        ···
-      </button>
-    </div>
+    </>
   )
 }

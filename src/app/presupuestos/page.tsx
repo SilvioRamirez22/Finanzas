@@ -92,8 +92,8 @@ export default function PresupuestosPage() {
       {/* IZQUIERDA */}
       <div className="space-y-4">
         {/* Presupuesto usado */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-start justify-between">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
             <p className="text-[11px] tracking-wide text-gray-400 font-medium">PRESUPUESTO USADO</p>
             <button onClick={() => setEditing(true)}
               className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
@@ -109,7 +109,7 @@ export default function PresupuestosPage() {
           ) : (
             <>
               <div className="flex items-baseline gap-3 mt-1">
-                <span className="text-4xl font-semibold text-gray-900 tracking-tight">
+                <span className="text-3xl md:text-4xl font-semibold text-gray-900 tracking-tight">
                   {globalPct.toFixed(0)}%
                 </span>
                 <span className="text-sm text-gray-500"
@@ -132,7 +132,7 @@ export default function PresupuestosPage() {
         </div>
 
         {/* Por categoría */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-900">Por categoría</h3>
             <span className="text-xs text-gray-400">Ordenado por desvío</span>
@@ -145,23 +145,25 @@ export default function PresupuestosPage() {
                 const over = r.pct > 100
                 const warn = r.pct > 90
                 return (
-                  <div key={r.budget.id} className="py-3 flex items-center gap-4">
-                    <div className="w-40 flex-shrink-0">
-                      <p className="text-sm text-gray-800">{r.name}</p>
+                  // w-40 + w-14 + w-28 + barra flexible pedían más ancho del que
+                  // tiene un celular. Acá la barra pasa a una línea propia.
+                  <div key={r.budget.id} className="py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <div className="order-1 flex-1 min-w-0 md:flex-none md:w-40">
+                      <p className="text-sm text-gray-800 truncate">{r.name}</p>
                       <p className="text-[11px] text-gray-400"
                          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
                         {formatCurrency(r.spent)} / {formatCurrency(r.amount)}
                       </p>
                     </div>
-                    <div className="flex-1 h-4 bg-gray-100 rounded-sm overflow-hidden relative">
+                    <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-gray-100 rounded-sm overflow-hidden relative">
                       <div className={`h-full ${over ? 'bg-red-600' : warn ? 'bg-amber-500' : 'bg-emerald-700'}`}
                         style={{ width: `${Math.min(r.pct, 100)}%` }} />
                       <div className="absolute top-0 bottom-0 w-px bg-gray-400" style={{ left: '100%' }} />
                     </div>
-                    <span className={`w-14 text-right text-sm ${over ? 'text-red-600' : warn ? 'text-amber-600' : 'text-emerald-700'}`}>
+                    <span className={`order-2 md:order-3 w-12 md:w-14 text-right text-sm flex-shrink-0 ${over ? 'text-red-600' : warn ? 'text-amber-600' : 'text-emerald-700'}`}>
                       {r.pct.toFixed(0)}%
                     </span>
-                    <span className={`w-28 text-right text-sm ${over ? 'text-red-600' : 'text-gray-500'}`}
+                    <span className={`order-3 md:order-4 text-right text-xs md:text-sm flex-shrink-0 md:w-28 ${over ? 'text-red-600' : 'text-gray-500'}`}
                           style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
                       {over ? `+${formatCurrency(r.diff)}` : `${formatCurrency(-r.diff)} libre`}
                     </span>
@@ -174,7 +176,7 @@ export default function PresupuestosPage() {
 
         {/* Sin presupuesto */}
         {noBudget.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
             <h3 className="text-sm font-semibold text-gray-900">Sin presupuesto</h3>
             <p className="text-sm text-gray-500 mt-1"
                style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
@@ -200,7 +202,7 @@ export default function PresupuestosPage() {
       {/* DERECHA */}
       <div className="space-y-4">
         {/* Cumplimiento */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-4">Cumplimiento</h3>
           {totalBudget === 0 ? (
             <p className="text-sm text-gray-300 py-6 text-center">Definí presupuestos para ver el historial</p>
@@ -228,7 +230,7 @@ export default function PresupuestosPage() {
         </div>
 
         {/* Sugerencias */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">
             Para {MESES[nextMonth.month - 1]}
           </h3>
@@ -335,9 +337,9 @@ function EditBudgets({ categories, budgets, cats, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white w-full max-w-lg rounded-xl shadow-xl max-h-[85vh] flex flex-col">
+      <div className="relative bg-white w-full max-w-lg rounded-t-2xl sm:rounded-xl shadow-xl max-h-[90dvh] sm:max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <h2 className="font-semibold text-gray-900">Editar presupuestos mensuales</h2>
           <button onClick={onClose}><X size={18} className="text-gray-400" /></button>
@@ -360,7 +362,7 @@ function EditBudgets({ categories, budgets, cats, onClose, onSaved }: {
                   value={values[c.id] || ''}
                   onChange={e => setValues(v => ({ ...v, [c.id]: e.target.value }))}
                   placeholder="Sin límite"
-                  className="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right outline-none focus:border-emerald-500"
+                  className="w-28 sm:w-36 flex-shrink-0 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right outline-none focus:border-emerald-500"
                 />
               </div>
             )

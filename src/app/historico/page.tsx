@@ -51,11 +51,13 @@ export default function HistoricoPage() {
   const topCats = categoryData.slice(0, 5)
 
   return (
-    <div className="p-4 lg:p-6 max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       {/* Header con selector de rango */}
-      <div className="flex items-center justify-between">
+      {/* En el celular los rangos van debajo del título: en una sola fila
+          empujaban la página a lo ancho. */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-xl font-semibold text-gray-900">Histórico</h1>
-        <div className="flex bg-gray-100 rounded-xl p-1">
+        <div className="flex bg-gray-100 rounded-xl p-1 overflow-x-auto no-scrollbar">
           {RANGES.map(r => (
             <button key={r.value} onClick={() => setRange(r.value)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${

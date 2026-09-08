@@ -40,7 +40,7 @@ export default function InversionesPage() {
   const totalPLPct = totalInvested > 0 ? (totalPL / totalInvested) * 100 : 0
 
   return (
-    <div className="p-4 lg:p-6 max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-gray-900">Inversiones</h1>
         <button
@@ -52,7 +52,7 @@ export default function InversionesPage() {
       </div>
 
       {/* Resumen */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
           <p className="text-xs text-gray-500 mb-1">Invertido</p>
           <p className="text-base font-semibold text-gray-900">{formatCurrency(totalInvested, 'ARS', true)}</p>

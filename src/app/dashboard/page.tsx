@@ -124,10 +124,10 @@ export default function DashboardPage() {
       <div className="space-y-4">
 
         {/* Resultado del mes */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-start justify-between">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+          <div className="flex items-start justify-between gap-3">
             <p className="text-[11px] tracking-wide text-gray-400 font-medium">RESULTADO DEL MES</p>
-            <div className="text-right">
+            <div className="text-right flex-shrink-0">
               <span className="text-[11px] text-gray-400">vs. {prevMonthName}</span>
               {prevNet !== 0 && (
                 <div className={`mt-1 inline-block px-2 py-0.5 rounded text-xs font-medium ${
@@ -139,7 +139,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <p className={`text-4xl font-semibold mt-1 tracking-tight ${net >= 0 ? 'text-emerald-800' : 'text-red-600'}`}
+          {/* text-4xl fijo desbordaba en pantallas de 360px con montos de 7 cifras. */}
+          <p className={`text-[26px] sm:text-3xl md:text-4xl font-semibold mt-1 tracking-tight break-words ${net >= 0 ? 'text-emerald-800' : 'text-red-600'}`}
              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
             {net >= 0 ? '+' : '−'}$ {formatCurrency(Math.abs(net)).replace(/^\$\s?/, '')}
           </p>
@@ -156,8 +157,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Sub-métricas */}
-          <div className="grid grid-cols-3 gap-4 mt-5 pt-4 border-t border-gray-100">
-            <div>
+          {/* 3 columnas fijas cortaban los números en el celular. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-5 pt-4 border-t border-gray-100 divide-y sm:divide-y-0 divide-gray-100">
+            <div className="pt-0">
               <p className="text-xs text-gray-400">Ingresos</p>
               <p className="text-lg font-semibold text-gray-900 mt-0.5"
                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
@@ -169,7 +171,7 @@ export default function DashboardPage() {
                   : `${incVarPct > 0 ? '▲' : '▼'}${Math.abs(incVarPct).toFixed(1)}% vs. ${prevMonthName}`}
               </p>
             </div>
-            <div className="border-l border-gray-100 pl-4">
+            <div className="pt-3 sm:pt-0 sm:border-l sm:border-gray-100 sm:pl-4">
               <p className="text-xs text-gray-400">Gastos</p>
               <p className="text-lg font-semibold text-gray-900 mt-0.5"
                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
@@ -182,7 +184,7 @@ export default function DashboardPage() {
                   : `${expVarPct > 0 ? '▲' : '▼'}${Math.abs(expVarPct).toFixed(1)}% vs. ${prevMonthName}`}
               </p>
             </div>
-            <div className="border-l border-gray-100 pl-4">
+            <div className="pt-3 sm:pt-0 sm:border-l sm:border-gray-100 sm:pl-4">
               <p className="text-xs text-gray-400">Gasto diario prom.</p>
               <p className="text-lg font-semibold text-gray-900 mt-0.5"
                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
@@ -196,7 +198,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Gastos por categoría */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-900">Gastos por categoría</h3>
             {cats.length > 9 && (
@@ -214,35 +216,43 @@ export default function DashboardPage() {
               {shownCats.map((c, i) => {
                 const v = catVar(c)
                 return (
-                  <div key={c.category_id} className="flex items-center gap-3 text-sm">
-                    <span className="w-32 truncate text-gray-700 flex-shrink-0">{c.category_name}</span>
-                    <div className="flex-1 h-4 bg-gray-100 rounded-sm overflow-hidden">
+                  // En el celular: nombre + monto + variación en una línea y la
+                  // barra abajo a lo ancho. En escritorio, todo en una sola fila.
+                  <div key={c.category_id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
+                    <span className="order-1 flex-1 min-w-0 truncate text-gray-700 md:flex-none md:w-32">
+                      {c.category_name}
+                    </span>
+                    <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-gray-100 rounded-sm overflow-hidden">
                       <div className="h-full rounded-sm transition-all"
                         style={{
                           width: `${(c.total / maxCat) * 100}%`,
                           background: i === 0 ? '#B54A32' : i < 3 ? '#C08268' : '#D5D2CB'
                         }} />
                     </div>
-                    <span className="w-28 text-right text-gray-900 flex-shrink-0"
+                    <span className="order-2 md:order-3 text-right text-gray-900 flex-shrink-0 md:w-28"
                           style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
                       {formatCurrency(c.total)}
                     </span>
-                    <span className={`w-14 text-right text-xs flex-shrink-0 ${v.color}`}>{v.label}</span>
+                    <span className={`order-3 md:order-4 w-11 md:w-14 text-right text-xs flex-shrink-0 ${v.color}`}>
+                      {v.label}
+                    </span>
                   </div>
                 )
               })}
               {!showAllCats && restCats.length > 0 && (
-                <div className="flex items-center gap-3 text-sm pt-2 border-t border-gray-100">
-                  <span className="w-32 truncate text-gray-400 flex-shrink-0">Otras {restCats.length}</span>
-                  <div className="flex-1 h-4 bg-gray-100 rounded-sm overflow-hidden">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm pt-2 border-t border-gray-100">
+                  <span className="order-1 flex-1 min-w-0 truncate text-gray-400 md:flex-none md:w-32">
+                    Otras {restCats.length}
+                  </span>
+                  <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-gray-100 rounded-sm overflow-hidden">
                     <div className="h-full bg-gray-300 rounded-sm"
                       style={{ width: `${(restTotal / maxCat) * 100}%` }} />
                   </div>
-                  <span className="w-28 text-right text-gray-500 flex-shrink-0"
+                  <span className="order-2 md:order-3 text-right text-gray-500 flex-shrink-0 md:w-28"
                         style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
                     {formatCurrency(restTotal)}
                   </span>
-                  <span className="w-14 text-right text-xs text-gray-400 flex-shrink-0">
+                  <span className="order-3 md:order-4 w-11 md:w-14 text-right text-xs text-gray-400 flex-shrink-0">
                     {totalCats > 0 ? `${Math.round((restTotal / totalCats) * 100)}%` : ''}
                   </span>
                 </div>
@@ -256,12 +266,12 @@ export default function DashboardPage() {
       <div className="space-y-4">
 
         {/* Saldo total */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">Saldo total</h3>
             <Link href="/cuentas" className="text-xs text-gray-400 hover:text-gray-700">Cuentas</Link>
           </div>
-          <p className={`text-3xl font-semibold mt-1 tracking-tight ${totalSaldo >= 0 ? 'text-gray-900' : 'text-red-600'}`}
+          <p className={`text-2xl sm:text-3xl font-semibold mt-1 tracking-tight break-words ${totalSaldo >= 0 ? 'text-gray-900' : 'text-red-600'}`}
              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
             {totalSaldo < 0 ? '−' : ''}$ {formatCurrency(Math.abs(totalSaldo)).replace(/^\$\s?/, '')}
           </p>
@@ -279,7 +289,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Presupuesto */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-900">
               Presupuesto de {MESES[month - 1]}
@@ -319,7 +329,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Últimos movimientos */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-gray-900">Últimos movimientos</h3>
             <Link href="/movimientos" className="text-xs text-gray-400 hover:text-gray-700">

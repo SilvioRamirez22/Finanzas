@@ -55,7 +55,7 @@ export default function BuscarPage() {
     t.type === 'expense' ? s - t.amount : t.type === 'income' ? s + t.amount : s, 0)
 
   return (
-    <div className="p-4 lg:p-6 max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto">
       <h1 className="text-xl font-semibold text-gray-900 mb-4">Buscar</h1>
 
       {/* Barra de búsqueda */}

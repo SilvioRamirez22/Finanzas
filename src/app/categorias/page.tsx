@@ -57,7 +57,7 @@ export default function CategoriasPage() {
   const displayed = activeTab === 'expense' ? roots : rootsIncome
 
   return (
-    <div className="p-4 lg:p-6 max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-gray-900">Categorías</h1>
         <button

@@ -5,6 +5,47 @@
 /* Tabler Icons */
 @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css');
 
+/* ============ BASE MÓVIL ============ */
+
+/* El header y varias tablas eran más anchos que la pantalla del celular:
+   el navegador estiraba la página y todo el contenido quedaba apretado en una
+   columna angosta con el resto en blanco. Esto corta ese scroll horizontal. */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Que iOS no agrande el texto solo al rotar el teléfono. */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Inercia de scroll nativa y sin resaltado azul al tocar. */
+body {
+  -webkit-overflow-scrolling: touch;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS Safari hace zoom automático al enfocar un input con letra menor a 16px,
+   y después la página queda descuadrada. Con 16px no hace zoom.
+   Solo en pantallas chicas: en escritorio se mantiene el tamaño del diseño. */
+@media (max-width: 767px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Márgenes seguros (notch / barra de gestos del iPhone). */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
 /* Scrollbar personalizado */
 * {
   scrollbar-width: thin;
@@ -14,6 +55,16 @@
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+
+/* Contenedores que sí pueden scrollear a lo ancho (tablas, filtros).
+   Se usa junto a overflow-x-auto para que no se vea la barra en el celular. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 
 /* Prevenir flash en inputs numéricos */
 input[type="number"]::-webkit-inner-spin-button,
@@ -40,9 +91,4 @@ select {
 
 .animate-fade-in {
   animation: fadeIn 0.2s ease-out;
-}
-
-/* Safe area para PWA en iPhone */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
 }

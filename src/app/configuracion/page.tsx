@@ -91,7 +91,7 @@ export default function ConfiguracionPage() {
   }
 
   return (
-    <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-4">
+    <div className="max-w-2xl mx-auto space-y-4">
       <h1 className="text-xl font-semibold text-gray-900">Configuración</h1>
 
       {/* Perfil */}
@@ -227,7 +227,7 @@ export default function ConfiguracionPage() {
       {/* Datos de la app */}
       <div className="bg-white rounded-2xl border border-gray-100 p-4">
         <h2 className="text-sm font-medium text-gray-700 mb-3">Resumen de datos</h2>
-        <div className="grid grid-cols-3 gap-3 text-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
           <div className="bg-gray-50 rounded-xl p-3">
             <p className="text-lg font-semibold text-gray-900">{accounts.length}</p>
             <p className="text-xs text-gray-500">Cuentas</p>
