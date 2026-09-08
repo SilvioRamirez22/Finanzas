@@ -22,15 +22,17 @@
 
 ## Paso 2 — Ejecutar el schema SQL
 
-En Supabase → **SQL Editor**, ejecutar en orden:
+En Supabase → **SQL Editor**, pegar y ejecutar `sql/INSTALAR_TODO.sql` completo.
+Es un solo archivo: crea tablas, RLS, triggers, funciones y la carga
+automática de categorías al registrarte.
 
-```
-1. sql/01_schema.sql       ← Tablas, RLS, triggers
-2. sql/02_seed.sql         ← Función seed_user_defaults
-3. sql/03_views_functions.sql ← Vistas y funciones de consulta
-```
+Verificar que no haya errores.
 
-Verificar que no haya errores en ninguno.
+> **Nota:** hasta el 2026-09-07 este archivo estaba desactualizado respecto
+> de la base en producción — le faltaba el trigger `trg_set_user_id` (sin él
+> ningún INSERT de la app funciona) y tenía las funciones RPC con una firma
+> `p_user_id` que `src/lib/api.ts` ya no usa. Si mantenés la base a mano desde
+> el SQL Editor, replicá el cambio acá también: el repo es la fuente de verdad.
 
 ---
 
@@ -119,9 +121,8 @@ src/
 └── types/
     └── index.ts            ← Todos los tipos TypeScript
 sql/
-├── 01_schema.sql           ← Schema completo con RLS y triggers
-├── 02_seed.sql             ← Categorías y datos iniciales
-└── 03_views_functions.sql  ← Vistas y funciones SQL
+├── INSTALAR_TODO.sql       ← Schema completo: tablas, RLS, triggers, funciones
+└── FIXES.sql               ← Parches para una base ya instalada (correr por bloques)
 ```
 
 ---

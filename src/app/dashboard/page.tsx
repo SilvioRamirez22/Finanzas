@@ -139,7 +139,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <p className={`text-4xl font-semibold mt-1 tracking-tight ${net >= 0 ? 'text-emerald-800' : 'text-red-600'}`}
+          <p className={`text-3xl sm:text-4xl font-semibold mt-1 tracking-tight ${net >= 0 ? 'text-emerald-800' : 'text-red-600'}`}
              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
             {net >= 0 ? '+' : '−'}$ {formatCurrency(Math.abs(net)).replace(/^\$\s?/, '')}
           </p>
@@ -156,7 +156,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Sub-métricas */}
-          <div className="grid grid-cols-3 gap-4 mt-5 pt-4 border-t border-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-5 pt-4 border-t border-gray-100 divide-y sm:divide-y-0 divide-gray-100">
             <div>
               <p className="text-xs text-gray-400">Ingresos</p>
               <p className="text-lg font-semibold text-gray-900 mt-0.5"
@@ -169,7 +169,7 @@ export default function DashboardPage() {
                   : `${incVarPct > 0 ? '▲' : '▼'}${Math.abs(incVarPct).toFixed(1)}% vs. ${prevMonthName}`}
               </p>
             </div>
-            <div className="border-l border-gray-100 pl-4">
+            <div className="pt-3 sm:pt-0 sm:border-l sm:border-gray-100 sm:pl-4">
               <p className="text-xs text-gray-400">Gastos</p>
               <p className="text-lg font-semibold text-gray-900 mt-0.5"
                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
@@ -182,7 +182,7 @@ export default function DashboardPage() {
                   : `${expVarPct > 0 ? '▲' : '▼'}${Math.abs(expVarPct).toFixed(1)}% vs. ${prevMonthName}`}
               </p>
             </div>
-            <div className="border-l border-gray-100 pl-4">
+            <div className="pt-3 sm:pt-0 sm:border-l sm:border-gray-100 sm:pl-4">
               <p className="text-xs text-gray-400">Gasto diario prom.</p>
               <p className="text-lg font-semibold text-gray-900 mt-0.5"
                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
