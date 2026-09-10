@@ -98,6 +98,23 @@ export async function updateTransaction(id: string, updates: Partial<Transaction
   return data
 }
 
+// Editar un movimiento ya cargado con los datos del formulario. No toca
+// cuotas, medio de pago ni notas: esos campos no se editan desde ahí.
+export async function updateTransactionFromForm(id: string, form: TransactionFormData) {
+  const isTransfer = form.type === 'transfer'
+  return updateTransaction(id, {
+    type: form.type,
+    amount: parseFloat(form.amount),
+    date: form.date,
+    description: form.description,
+    account_id: form.account_id,
+    category_id: isTransfer ? null : form.category_id || null,
+    subcategory_id: isTransfer ? null : form.subcategory_id || null,
+    transfer_to_account_id: isTransfer ? form.transfer_to_account_id || null : null,
+    is_recurring: isTransfer ? false : !!form.is_recurring,
+  })
+}
+
 export async function deleteTransaction(id: string) {
   const { error } = await sb()
     .from('transactions')

@@ -5,10 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import { createTransaction } from '@/lib/api'
+import { createTransaction, updateTransactionFromForm } from '@/lib/api'
 import { todayISO, formatCurrency } from '@/lib/format'
 import toast from 'react-hot-toast'
-import type { TransactionFormData } from '@/types'
+import type { TransactionFormData, TransactionFull } from '@/types'
 
 const schema = z.object({
   type: z.enum(['income', 'expense', 'transfer']),
@@ -31,9 +31,28 @@ interface QuickAddProps {
   open: boolean
   onClose: () => void
   onSuccess?: () => void
+  // Si viene, el formulario edita ese movimiento en vez de crear uno nuevo.
+  transaction?: TransactionFull | null
 }
 
-export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProps) {
+// Pasa un movimiento guardado a los valores del formulario.
+function formFromTransaction(t: TransactionFull): TransactionFormData {
+  return {
+    type: t.type,
+    amount: String(t.amount),
+    date: t.date,
+    description: t.description,
+    account_id: t.account_id,
+    category_id: t.category_id || '',
+    subcategory_id: t.subcategory_id || '',
+    transfer_to_account_id: t.transfer_to_account_id || '',
+    has_installments: false,
+    is_recurring: t.is_recurring,
+  }
+}
+
+export default function QuickAddModal({ open, onClose, onSuccess, transaction }: QuickAddProps) {
+  const isEdit = !!transaction
   const { accounts, profile, categoriesWithSubs } = useAppStore()
   const [submitting, setSubmitting] = useState(false)
   const amountRef = useRef<HTMLInputElement | null>(null)
@@ -63,10 +82,20 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
 
   useEffect(() => {
     if (!open) reset({ type: 'expense', date: todayISO(), has_installments: false, is_recurring: false })
-  }, [open])
+    else if (transaction) reset(formFromTransaction(transaction))
+  }, [open, transaction])
 
   const selectedCategory = categoriesWithSubs().find(c => c.id === categoryId)
   const subcategories = selectedCategory?.subcategories || []
+
+  // Si cambia la categoría, la subcategoría anterior ya no corresponde.
+  // Sin esto, al editar quedaba guardada una subcategoría de otra categoría.
+  const subcategoryId = watch('subcategory_id')
+  useEffect(() => {
+    if (subcategoryId && !subcategories.some(s => s.id === subcategoryId)) {
+      setValue('subcategory_id', '')
+    }
+  }, [categoryId])
 
   const filteredCategories = categoriesWithSubs().filter(c =>
     type === 'income' ? c.type !== 'expense' : c.type !== 'income'
@@ -81,8 +110,13 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
     if (!profile) return
     setSubmitting(true)
     try {
-      await createTransaction(data, profile.id)
-      toast.success(data.type === 'income' ? 'Ingreso registrado' : 'Gasto registrado')
+      if (transaction) {
+        await updateTransactionFromForm(transaction.id, data)
+        toast.success('Cambios guardados')
+      } else {
+        await createTransaction(data, profile.id)
+        toast.success(data.type === 'income' ? 'Ingreso registrado' : 'Gasto registrado')
+      }
       onSuccess?.()
       onClose()
     } catch (e: any) {
@@ -104,7 +138,7 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
         </div>
 
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Nuevo movimiento</h2>
+          <h2 className="font-semibold text-gray-900">{isEdit ? 'Editar movimiento' : 'Nuevo movimiento'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
           </button>
@@ -244,8 +278,16 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
             </div>
           )}
 
-          {/* Cuotas */}
-          {type === 'expense' && (
+          {/* Editando una cuota: se cambia solo esta, no el grupo entero. */}
+          {isEdit && transaction!.installments_total > 1 && (
+            <p className="text-xs text-gray-500 bg-gray-50 rounded-xl p-3">
+              Estás editando la cuota {transaction!.installment_number} de {transaction!.installments_total}.
+              Las otras cuotas no cambian.
+            </p>
+          )}
+
+          {/* Cuotas (solo al crear) */}
+          {type === 'expense' && !isEdit && (
             <div className="bg-gray-50 rounded-xl p-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -308,7 +350,7 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
               disabled:opacity-50
             `}
           >
-            {submitting ? 'Guardando...' : type === 'expense' ? 'Registrar gasto' : type === 'income' ? 'Registrar ingreso' : 'Registrar transferencia'}
+            {submitting ? 'Guardando...' : isEdit ? 'Guardar cambios' : type === 'expense' ? 'Registrar gasto' : type === 'income' ? 'Registrar ingreso' : 'Registrar transferencia'}
           </button>
         </form>
       </div>

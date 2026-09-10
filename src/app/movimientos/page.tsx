@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Repeat } from 'lucide-react'
-import { getTransactions, deleteTransaction, deleteInstallmentGroup, updateTransaction } from '@/lib/api'
+import { getTransactions, deleteTransaction, deleteInstallmentGroup, updateTransaction, getAccounts } from '@/lib/api'
+import QuickAddModal from '@/components/forms/QuickAddModal'
 import { useAppStore } from '@/store/useAppStore'
 import { formatCurrency } from '@/lib/format'
 import { exportTransactionsToExcel } from '@/lib/exportImport'
@@ -28,11 +29,13 @@ type TypeFilter = 'all' | 'expense' | 'income' | 'recurring'
 type AmountFilter = 'any' | 'gt50' | 'gt100' | 'gt500'
 
 export default function MovimientosPage() {
-  const { accounts, categories, selectedMonth, setQuickAddOpen } = useAppStore()
+  const { accounts, categories, selectedMonth, setQuickAddOpen, setAccounts } = useAppStore()
   const { year, month } = selectedMonth
 
   const [all, setAll] = useState<TransactionFull[]>([])
   const [loading, setLoading] = useState(true)
+  // Movimiento abierto en el formulario de edición (null = cerrado).
+  const [editing, setEditing] = useState<TransactionFull | null>(null)
 
   // Filtros
   const [q, setQ] = useState('')
@@ -251,13 +254,13 @@ export default function MovimientosPage() {
                   </span>
                 </div>
                 {txs.map(t => <Row key={t.id} t={t} onDelete={() => handleDelete(t)}
-                  onToggleRecurring={() => handleToggleRecurring(t)} />)}
+                  onToggleRecurring={() => handleToggleRecurring(t)} onEdit={() => setEditing(t)} />)}
               </div>
             )
           })
         ) : (
           filtered.map(t => <Row key={t.id} t={t} onDelete={() => handleDelete(t)}
-            onToggleRecurring={() => handleToggleRecurring(t)} showDate />)
+            onToggleRecurring={() => handleToggleRecurring(t)} onEdit={() => setEditing(t)} showDate />)
         )}
       </div>
 
@@ -266,12 +269,24 @@ export default function MovimientosPage() {
           {filtered.length} movimientos · {MESES[month - 1]} {year}
         </p>
       )}
+
+      <QuickAddModal
+        open={!!editing}
+        transaction={editing}
+        onClose={() => setEditing(null)}
+        onSuccess={async () => {
+          load()
+          // El monto o la cuenta pueden haber cambiado: refrescar saldos.
+          setAccounts(await getAccounts())
+        }}
+      />
     </div>
   )
 }
 
-function Row({ t, onDelete, onToggleRecurring, showDate }: {
-  t: TransactionFull; onDelete: () => void; onToggleRecurring: () => void; showDate?: boolean
+function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
+  t: TransactionFull; onDelete: () => void; onToggleRecurring: () => void; onEdit: () => void
+  showDate?: boolean
 }) {
   const isIncome = t.type === 'income'
   const canBeRecurring = t.type !== 'transfer'
@@ -284,7 +299,9 @@ function Row({ t, onDelete, onToggleRecurring, showDate }: {
   return (
     <>
       {/* ---------- Celular ---------- */}
-      <div className="md:hidden flex items-start gap-3 px-4 py-3 border-b border-gray-100 active:bg-gray-50">
+      {/* Tocar el movimiento abre el formulario para corregirlo. */}
+      <div onClick={onEdit} role="button" aria-label={`Editar ${t.description}`}
+        className="md:hidden flex items-start gap-3 px-4 py-3 border-b border-gray-100 active:bg-gray-50 cursor-pointer">
         <div className="w-5 h-5 rounded flex-shrink-0 mt-0.5"
           style={{ background: (t.category_color || '#D1D5DB') + '40' }} />
 
@@ -310,19 +327,20 @@ function Row({ t, onDelete, onToggleRecurring, showDate }: {
 
         {/* En touch no existe el hover, así que los botones se ven siempre. */}
         {canBeRecurring && (
-          <button onClick={onToggleRecurring} aria-label={recurringLabel} title={recurringLabel}
+          <button onClick={e => { e.stopPropagation(); onToggleRecurring() }} aria-label={recurringLabel} title={recurringLabel}
             className={`px-1 flex-shrink-0 mt-0.5 ${t.is_recurring ? 'text-indigo-600' : 'text-gray-300 active:text-indigo-600'}`}>
             <Repeat size={14} />
           </button>
         )}
-        <button onClick={onDelete} aria-label="Eliminar"
+        <button onClick={e => { e.stopPropagation(); onDelete() }} aria-label="Eliminar"
           className="text-gray-300 active:text-red-500 px-1 -mr-1 flex-shrink-0 text-sm">
           ···
         </button>
       </div>
 
       {/* ---------- Escritorio ---------- */}
-      <div className="hidden md:flex items-center gap-3 px-5 py-2.5 border-b border-gray-100 hover:bg-gray-50/60 group transition-colors">
+      <div onClick={onEdit} title="Click para editar"
+        className="hidden md:flex items-center gap-3 px-5 py-2.5 border-b border-gray-100 hover:bg-gray-50/60 group transition-colors cursor-pointer">
         <div className="w-6 flex-shrink-0">
           <div className="w-5 h-5 rounded"
             style={{ background: (t.category_color || '#D1D5DB') + '40' }} />
@@ -348,14 +366,14 @@ function Row({ t, onDelete, onToggleRecurring, showDate }: {
         </span>
         <div className="w-14 flex items-center justify-end gap-1 flex-shrink-0">
           {canBeRecurring && (
-            <button onClick={onToggleRecurring} aria-label={recurringLabel} title={recurringLabel}
+            <button onClick={e => { e.stopPropagation(); onToggleRecurring() }} aria-label={recurringLabel} title={recurringLabel}
               className={`p-1 transition-all ${t.is_recurring
                 ? 'text-indigo-600 hover:text-indigo-800'
                 : 'text-gray-300 hover:text-indigo-600 opacity-0 group-hover:opacity-100'}`}>
               <Repeat size={14} />
             </button>
           )}
-          <button onClick={onDelete} aria-label="Eliminar"
+          <button onClick={e => { e.stopPropagation(); onDelete() }} aria-label="Eliminar"
             className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all text-sm">
             ···
           </button>
