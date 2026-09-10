@@ -354,6 +354,28 @@ export default function DashboardPage() {
             {expenses > 0 && fixedTotal > 0 && <> · {Math.round((fixedTotal / expenses) * 100)}% del gasto</>}
           </p>
 
+          {/* Cada gasto fijo cargado este mes, del más caro al más barato. */}
+          {fixedTx.length > 0 && (
+            <div className="mt-3 divide-y divide-gray-100">
+              {[...fixedTx].sort((a, b) => Number(b.amount) - Number(a.amount)).map(t => (
+                <div key={t.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+                  <div className="min-w-0">
+                    <p className="text-gray-700 truncate">
+                      <span className="text-emerald-600 mr-1">✓</span>{t.description}
+                    </p>
+                    <p className="text-[11px] text-gray-400 truncate">
+                      {shortDate(t.date)}{t.category_name && <> · {t.category_name}</>}
+                    </p>
+                  </div>
+                  <span className="text-gray-900 flex-shrink-0"
+                        style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                    {formatCurrency(Number(t.amount))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {fixedPending.length > 0 && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <p className="text-[11px] text-amber-700 mb-1.5">
