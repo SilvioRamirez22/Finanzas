@@ -1,9 +1,11 @@
 'use client'
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { getTransactions, deleteTransaction, deleteInstallmentGroup } from '@/lib/api'
+import { Repeat } from 'lucide-react'
+import { getTransactions, deleteTransaction, deleteInstallmentGroup, updateTransaction } from '@/lib/api'
 import { useAppStore } from '@/store/useAppStore'
 import { formatCurrency } from '@/lib/format'
 import { exportTransactionsToExcel } from '@/lib/exportImport'
+import RecurringBadge from '@/components/RecurringBadge'
 import toast from 'react-hot-toast'
 import type { TransactionFull } from '@/types'
 
@@ -22,7 +24,7 @@ function dayLabel(iso: string) {
   return `${DIAS[dt.getDay()]} ${d} de ${MESES[m - 1]}`
 }
 
-type TypeFilter = 'all' | 'expense' | 'income'
+type TypeFilter = 'all' | 'expense' | 'income' | 'recurring'
 type AmountFilter = 'any' | 'gt50' | 'gt100' | 'gt500'
 
 export default function MovimientosPage() {
@@ -56,7 +58,9 @@ export default function MovimientosPage() {
   // Aplicar filtros en memoria
   const filtered = useMemo(() => {
     return all.filter(t => {
-      if (typeFilter !== 'all' && t.type !== typeFilter) return false
+      if (typeFilter === 'recurring') {
+        if (!t.is_recurring) return false
+      } else if (typeFilter !== 'all' && t.type !== typeFilter) return false
       if (catFilter && t.category_id !== catFilter) return false
       if (accFilter && t.account_id !== accFilter) return false
       if (q) {
@@ -108,6 +112,20 @@ export default function MovimientosPage() {
     } catch (e: any) { toast.error(e.message) }
   }
 
+  // Marcar / desmarcar como fijo. Se actualiza en pantalla al toque y, si
+  // falla el guardado, se vuelve atrás.
+  async function handleToggleRecurring(t: TransactionFull) {
+    const next = !t.is_recurring
+    setAll(prev => prev.map(x => x.id === t.id ? { ...x, is_recurring: next } : x))
+    try {
+      await updateTransaction(t.id, { is_recurring: next })
+      toast.success(next ? `"${t.description}" marcado como fijo` : 'Ya no es fijo')
+    } catch (e: any) {
+      setAll(prev => prev.map(x => x.id === t.id ? { ...x, is_recurring: !next } : x))
+      toast.error(e.message)
+    }
+  }
+
   const rootCats = categories.filter(c => !c.parent_id)
 
   return (
@@ -140,6 +158,7 @@ export default function MovimientosPage() {
             <option value="all">Todo</option>
             <option value="expense">Solo gastos</option>
             <option value="income">Solo ingresos</option>
+            <option value="recurring">Solo fijos</option>
           </select>
           <select value={amountFilter} onChange={e => setAmountFilter(e.target.value as AmountFilter)}
             className={`min-w-0 border rounded-lg px-3 py-2 text-sm outline-none ${
@@ -209,7 +228,7 @@ export default function MovimientosPage() {
           <span className="w-36">CATEGORÍA</span>
           <span className="w-32">CUENTA</span>
           <span className="w-32 text-right">MONTO</span>
-          <span className="w-8" />
+          <span className="w-14" />
         </div>
 
         {loading ? (
@@ -231,12 +250,14 @@ export default function MovimientosPage() {
                     {dayTotal >= 0 ? '+' : '−'}{formatCurrency(Math.abs(dayTotal))}
                   </span>
                 </div>
-                {txs.map(t => <Row key={t.id} t={t} onDelete={() => handleDelete(t)} />)}
+                {txs.map(t => <Row key={t.id} t={t} onDelete={() => handleDelete(t)}
+                  onToggleRecurring={() => handleToggleRecurring(t)} />)}
               </div>
             )
           })
         ) : (
-          filtered.map(t => <Row key={t.id} t={t} onDelete={() => handleDelete(t)} showDate />)
+          filtered.map(t => <Row key={t.id} t={t} onDelete={() => handleDelete(t)}
+            onToggleRecurring={() => handleToggleRecurring(t)} showDate />)
         )}
       </div>
 
@@ -249,10 +270,12 @@ export default function MovimientosPage() {
   )
 }
 
-function Row({ t, onDelete, showDate }: {
-  t: TransactionFull; onDelete: () => void; showDate?: boolean
+function Row({ t, onDelete, onToggleRecurring, showDate }: {
+  t: TransactionFull; onDelete: () => void; onToggleRecurring: () => void; showDate?: boolean
 }) {
   const isIncome = t.type === 'income'
+  const canBeRecurring = t.type !== 'transfer'
+  const recurringLabel = t.is_recurring ? 'Quitar de gastos fijos' : 'Marcar como gasto fijo'
 
   // Las columnas fijas (w-36 + w-32 + w-32 + flex-1) pedían unos 700px de ancho.
   // En un celular de 360px eso estiraba TODA la página y dejaba el contenido
@@ -279,12 +302,19 @@ function Row({ t, onDelete, showDate }: {
                 {t.category_name}
               </span>
             )}
+            {t.is_recurring && <RecurringBadge />}
             <span className="truncate">{t.account_name}</span>
             {showDate && <span className="flex-shrink-0">· {t.date}</span>}
           </div>
         </div>
 
-        {/* En touch no existe el hover, así que el botón se ve siempre. */}
+        {/* En touch no existe el hover, así que los botones se ven siempre. */}
+        {canBeRecurring && (
+          <button onClick={onToggleRecurring} aria-label={recurringLabel} title={recurringLabel}
+            className={`px-1 flex-shrink-0 mt-0.5 ${t.is_recurring ? 'text-indigo-600' : 'text-gray-300 active:text-indigo-600'}`}>
+            <Repeat size={14} />
+          </button>
+        )}
         <button onClick={onDelete} aria-label="Eliminar"
           className="text-gray-300 active:text-red-500 px-1 -mr-1 flex-shrink-0 text-sm">
           ···
@@ -298,7 +328,10 @@ function Row({ t, onDelete, showDate }: {
             style={{ background: (t.category_color || '#D1D5DB') + '40' }} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-gray-800 truncate">{t.description}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-sm text-gray-800 truncate">{t.description}</p>
+            {t.is_recurring && <RecurringBadge />}
+          </div>
           {showDate && <p className="text-[11px] text-gray-400">{t.date}</p>}
         </div>
         <div className="w-36 flex-shrink-0">
@@ -313,10 +346,20 @@ function Row({ t, onDelete, showDate }: {
               style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
           {isIncome ? '+' : '−'}{formatCurrency(Number(t.amount))}
         </span>
-        <button onClick={onDelete}
-          className="w-8 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all text-sm flex-shrink-0">
-          ···
-        </button>
+        <div className="w-14 flex items-center justify-end gap-1 flex-shrink-0">
+          {canBeRecurring && (
+            <button onClick={onToggleRecurring} aria-label={recurringLabel} title={recurringLabel}
+              className={`p-1 transition-all ${t.is_recurring
+                ? 'text-indigo-600 hover:text-indigo-800'
+                : 'text-gray-300 hover:text-indigo-600 opacity-0 group-hover:opacity-100'}`}>
+              <Repeat size={14} />
+            </button>
+          )}
+          <button onClick={onDelete} aria-label="Eliminar"
+            className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all text-sm">
+            ···
+          </button>
+        </div>
       </div>
     </>
   )

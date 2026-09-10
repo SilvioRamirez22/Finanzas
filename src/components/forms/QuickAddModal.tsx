@@ -23,6 +23,8 @@ const schema = z.object({
   has_installments: z.boolean(),
   installments_total: z.number().min(2).max(120).optional(),
   transfer_to_account_id: z.string().optional(),
+  // Tiene que estar en el schema: zod descarta los campos que no conoce.
+  is_recurring: z.boolean().optional(),
 })
 
 interface QuickAddProps {
@@ -32,7 +34,7 @@ interface QuickAddProps {
 }
 
 export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProps) {
-  const { accounts, paymentMethods, profile, categoriesWithSubs } = useAppStore()
+  const { accounts, profile, categoriesWithSubs } = useAppStore()
   const [submitting, setSubmitting] = useState(false)
   const amountRef = useRef<HTMLInputElement | null>(null)
 
@@ -43,6 +45,7 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
       date: todayISO(),
       has_installments: false,
       installments_total: 2,
+      is_recurring: false,
     },
   })
 
@@ -59,7 +62,7 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
   }, [open])
 
   useEffect(() => {
-    if (!open) reset({ type: 'expense', date: todayISO(), has_installments: false })
+    if (!open) reset({ type: 'expense', date: todayISO(), has_installments: false, is_recurring: false })
   }, [open])
 
   const selectedCategory = categoriesWithSubs().find(c => c.id === categoryId)
@@ -241,20 +244,6 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
             </div>
           )}
 
-          {/* Medio de pago */}
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Medio de pago</label>
-            <select
-              {...register('payment_method_id')}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-emerald-400 bg-white"
-            >
-              <option value="">Sin especificar</option>
-              {paymentMethods.map(pm => (
-                <option key={pm.id} value={pm.id}>{pm.name}</option>
-              ))}
-            </select>
-          </div>
-
           {/* Cuotas */}
           {type === 'expense' && (
             <div className="bg-gray-50 rounded-xl p-3">
@@ -290,15 +279,22 @@ export default function QuickAddModal({ open, onClose, onSuccess }: QuickAddProp
             </div>
           )}
 
-          {/* Notas */}
-          <div>
-            <input
-              {...register('notes')}
-              type="text"
-              placeholder="Notas (opcional)"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400 transition-colors"
-            />
-          </div>
+          {/* Gasto fijo / recurrente. No aplica a cuotas: esas ya se generan solas. */}
+          {type !== 'transfer' && !hasInstallments && (
+            <label className="flex items-start gap-2 cursor-pointer bg-indigo-50/60 rounded-xl p-3">
+              <input
+                type="checkbox"
+                {...register('is_recurring')}
+                className="rounded mt-0.5"
+              />
+              <span className="text-sm text-gray-700">
+                {type === 'expense' ? 'Gasto fijo' : 'Ingreso fijo'}
+                <span className="block text-xs text-gray-400">
+                  Se repite todos los meses (expensas, luz, internet...)
+                </span>
+              </span>
+            </label>
+          )}
 
           {/* Submit */}
           <button

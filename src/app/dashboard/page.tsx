@@ -5,6 +5,7 @@ import { ChevronRight } from 'lucide-react'
 import { getTransactions, getExpensesByCategory } from '@/lib/api'
 import { useAppStore } from '@/store/useAppStore'
 import { formatCurrency } from '@/lib/format'
+import RecurringBadge from '@/components/RecurringBadge'
 import type { TransactionFull, CategoryExpense } from '@/types'
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -40,6 +41,8 @@ export default function DashboardPage() {
   // Todos los movimientos del mes. Ya los traíamos para calcular los totales,
   // asi que el detalle de cada categoría no necesita ninguna consulta extra.
   const [allTx, setAllTx] = useState<TransactionFull[]>([])
+  // Movimientos del mes anterior: para avisar qué gastos fijos faltan cargar.
+  const [prevAllTx, setPrevAllTx] = useState<TransactionFull[]>([])
   const [showAllCats, setShowAllCats] = useState(false)
   const [openCat, setOpenCat] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -76,6 +79,7 @@ export default function DashboardPage() {
         else if (t.type === 'expense') pExp += Number(t.amount)
       }
       setPrevIncome(pInc); setPrevExpenses(pExp)
+      setPrevAllTx(prevTx.data || [])
 
       setCats((curCats || []).filter(c => c.total > 0))
       setPrevCats(prevCatsData || [])
@@ -128,6 +132,22 @@ export default function DashboardPage() {
     const pct = b.amount > 0 ? (spent / b.amount) * 100 : 0
     return { ...b, spent, pct }
   }).sort((a, b) => b.pct - a.pct).slice(0, 3)
+
+  // Gastos fijos: los de este mes, y los del mes anterior que todavía no
+  // aparecen (se comparan por descripción, sin mayúsculas ni espacios de más).
+  const isFixedExpense = (t: TransactionFull) =>
+    t.is_recurring && t.type === 'expense' && t.status !== 'cancelled'
+  const normDesc = (s: string) => s.trim().toLowerCase()
+  const fixedTx = allTx.filter(isFixedExpense)
+  const fixedTotal = fixedTx.reduce((s, t) => s + Number(t.amount), 0)
+  const fixedLoaded = new Set(fixedTx.map(t => normDesc(t.description)))
+  const fixedPending = Array.from(
+    new Map(
+      prevAllTx
+        .filter(t => isFixedExpense(t) && !fixedLoaded.has(normDesc(t.description)))
+        .map(t => [normDesc(t.description), t] as const)
+    ).values()
+  )
 
   const totalSaldo = accounts
     .filter(a => a.is_active && !a.exclude_from_totals)
@@ -319,6 +339,48 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Gastos fijos */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">Gastos fijos</h3>
+            <Link href="/movimientos" className="text-xs text-gray-400 hover:text-gray-700">Movimientos</Link>
+          </div>
+          <p className="text-2xl font-semibold mt-1 tracking-tight text-gray-900 break-words"
+             style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+            {formatCurrency(fixedTotal)}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            {fixedTx.length} {fixedTx.length === 1 ? 'gasto fijo' : 'gastos fijos'} en {MESES[month - 1]}
+            {expenses > 0 && fixedTotal > 0 && <> · {Math.round((fixedTotal / expenses) * 100)}% del gasto</>}
+          </p>
+
+          {fixedPending.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-[11px] text-amber-700 mb-1.5">
+                Faltan cargar (estaban en {prevMonthName}):
+              </p>
+              <div className="divide-y divide-gray-100">
+                {fixedPending.map(t => (
+                  <div key={t.id} className="flex items-center justify-between py-1.5 text-sm">
+                    <span className="text-gray-600 truncate">{t.description}</span>
+                    <span className="text-gray-400 flex-shrink-0 ml-3"
+                          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                      {formatCurrency(Number(t.amount))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {fixedTx.length === 0 && fixedPending.length === 0 && (
+            <p className="text-xs text-gray-400 mt-3">
+              Marcá tus gastos fijos (expensas, luz, internet...) con el ícono ↻ en Movimientos,
+              o tildando &quot;Gasto fijo&quot; al cargarlos.
+            </p>
+          )}
+        </div>
+
         {/* Presupuesto */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
@@ -374,7 +436,10 @@ export default function DashboardPage() {
               {recent.map(t => (
                 <div key={t.id} className="flex items-center justify-between py-2.5">
                   <div className="min-w-0">
-                    <p className="text-sm text-gray-800 truncate">{t.description}</p>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <p className="text-sm text-gray-800 truncate">{t.description}</p>
+                      {t.is_recurring && <RecurringBadge />}
+                    </div>
                     <p className="text-[11px] text-gray-400">
                       {t.category_name || 'Sin categoría'} · {t.date}
                     </p>
@@ -450,6 +515,7 @@ function CategoryDetail({ categoryId, all, total }: {
                 )}
               </p>
               <p className="text-[11px] text-gray-400 truncate">
+                {t.is_recurring && <><span className="text-indigo-600">Fijo</span> · </>}
                 {shortDate(t.date)}
                 {t.subcategory_name && <> · {t.subcategory_name}</>}
                 {' · '}{t.account_name}
