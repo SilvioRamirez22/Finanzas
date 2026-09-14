@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import { createTransaction, updateTransactionFromForm } from '@/lib/api'
+import { createTransaction, updateTransactionFromForm, updateInstallments } from '@/lib/api'
 import { todayISO, formatCurrency } from '@/lib/format'
 import toast from 'react-hot-toast'
 import type { TransactionFormData, TransactionFull } from '@/types'
@@ -21,7 +21,9 @@ const schema = z.object({
   payment_method_id: z.string().optional(),
   notes: z.string().optional(),
   has_installments: z.boolean(),
-  installments_total: z.number().min(2).max(120).optional(),
+  // Mínimo 1: al editar, 1 cuota = gasto normal. Al crear, las cuotas
+  // solo se generan si hay 2 o más.
+  installments_total: z.number({ invalid_type_error: 'Ingresá la cantidad de cuotas' }).min(1, 'Mínimo 1').max(120, 'Máximo 120').optional(),
   transfer_to_account_id: z.string().optional(),
   // Tiene que estar en el schema: zod descarta los campos que no conoce.
   is_recurring: z.boolean().optional(),
@@ -47,6 +49,7 @@ function formFromTransaction(t: TransactionFull): TransactionFormData {
     subcategory_id: t.subcategory_id || '',
     transfer_to_account_id: t.transfer_to_account_id || '',
     has_installments: false,
+    installments_total: t.installments_total,
     is_recurring: t.is_recurring,
   }
 }
@@ -55,6 +58,8 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
   const isEdit = !!transaction
   const { accounts, profile, categoriesWithSubs } = useAppStore()
   const [submitting, setSubmitting] = useState(false)
+  // Al editar cuotas: copiar los cambios a todo el grupo o solo a esta cuota.
+  const [applyToAll, setApplyToAll] = useState(true)
   const amountRef = useRef<HTMLInputElement | null>(null)
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormData>({
@@ -81,9 +86,16 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
   }, [open])
 
   useEffect(() => {
-    if (!open) reset({ type: 'expense', date: todayISO(), has_installments: false, is_recurring: false })
-    else if (transaction) reset(formFromTransaction(transaction))
+    if (!open) {
+      reset({ type: 'expense', date: todayISO(), has_installments: false, installments_total: 2, is_recurring: false })
+      setApplyToAll(true)
+    } else if (transaction) reset(formFromTransaction(transaction))
   }, [open, transaction])
+
+  // Datos de cuotas del movimiento que se edita.
+  const origTotal = transaction?.installments_total ?? 1
+  const editingNumber = origTotal > 1 ? transaction!.installment_number : 1
+  const editTotal = Number.isFinite(installmentsWatch) ? Number(installmentsWatch) : origTotal
 
   const selectedCategory = categoriesWithSubs().find(c => c.id === categoryId)
   const subcategories = selectedCategory?.subcategories || []
@@ -111,7 +123,14 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
     setSubmitting(true)
     try {
       if (transaction) {
-        await updateTransactionFromForm(transaction.id, data)
+        const newTotal = data.installments_total ?? origTotal
+        // Pasa por la lógica de cuotas si cambia la cantidad, o si hay que
+        // copiar los cambios a todas las cuotas del grupo.
+        if (data.type === 'expense' && (newTotal !== origTotal || (origTotal > 1 && applyToAll))) {
+          await updateInstallments(transaction, data, newTotal, applyToAll)
+        } else {
+          await updateTransactionFromForm(transaction.id, data)
+        }
         toast.success('Cambios guardados')
       } else {
         await createTransaction(data, profile.id)
@@ -186,7 +205,7 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
                 className="flex-1 text-3xl font-semibold text-gray-900 outline-none bg-transparent placeholder-gray-300"
               />
             </div>
-            {hasInstallments && (
+            {(hasInstallments || (isEdit && type === 'expense' && editTotal > 1)) && (
               <p className="text-xs text-gray-500 mt-1">
                 Este es el valor de <b>cada cuota</b>
               </p>
@@ -278,12 +297,66 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
             </div>
           )}
 
-          {/* Editando una cuota: se cambia solo esta, no el grupo entero. */}
-          {isEdit && transaction!.installments_total > 1 && (
-            <p className="text-xs text-gray-500 bg-gray-50 rounded-xl p-3">
-              Estás editando la cuota {transaction!.installment_number} de {transaction!.installments_total}.
-              Las otras cuotas no cambian.
-            </p>
+          {/* Cuotas al editar: cambiar la cantidad y a qué cuotas aplicar. */}
+          {isEdit && type === 'expense' && (
+            <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="edit-installments" className="text-sm text-gray-700">
+                  Cantidad de cuotas
+                  {origTotal > 1 && (
+                    <span className="block text-xs text-gray-400">
+                      Estás editando la cuota {editingNumber} de {origTotal}
+                    </span>
+                  )}
+                </label>
+                <input
+                  id="edit-installments"
+                  type="number"
+                  min={editingNumber}
+                  max={120}
+                  inputMode="numeric"
+                  {...register('installments_total', { valueAsNumber: true })}
+                  className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm text-right outline-none focus:border-emerald-400 bg-white"
+                />
+              </div>
+              {errors.installments_total && (
+                <p className="text-xs text-red-500">{errors.installments_total.message}</p>
+              )}
+              {editTotal < editingNumber && (
+                <p className="text-xs text-red-500">
+                  No puede haber menos de {editingNumber} cuotas: estás editando la cuota {editingNumber}.
+                </p>
+              )}
+
+              {origTotal > 1 && (
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={applyToAll}
+                    onChange={e => setApplyToAll(e.target.checked)}
+                    className="rounded mt-0.5"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Aplicar los cambios a todas las cuotas
+                    <span className="block text-xs text-gray-400">
+                      {applyToAll
+                        ? 'Monto, descripción, cuenta, categoría y fechas se copian a todas.'
+                        : 'Solo cambia esta cuota.'}
+                    </span>
+                  </span>
+                </label>
+              )}
+
+              {editTotal !== origTotal && editTotal >= editingNumber && (
+                <p className="text-xs text-emerald-700 font-medium">
+                  {editTotal > origTotal
+                    ? `Se ${editTotal - origTotal === 1 ? 'agrega 1 cuota' : `agregan ${editTotal - origTotal} cuotas`}, una por mes.`
+                    : `Se ${origTotal - editTotal === 1 ? 'borra la última cuota' : `borran las últimas ${origTotal - editTotal} cuotas`}.`}
+                  {editTotal > 1 && amountWatch && !isNaN(parseFloat(amountWatch)) &&
+                    ` Total: ${editTotal} × ${formatCurrency(parseFloat(amountWatch))} = ${formatCurrency(parseFloat(amountWatch) * editTotal)}`}
+                </p>
+              )}
+            </div>
           )}
 
           {/* Cuotas (solo al crear) */}

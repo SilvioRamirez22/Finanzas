@@ -115,6 +115,91 @@ export async function updateTransactionFromForm(id: string, form: TransactionFor
   })
 }
 
+// ---- Cuotas ----
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
+// Suma meses a "YYYY-MM-DD" igual que Postgres con INTERVAL '1 month':
+// si el día no existe en el mes destino (31 de febrero), usa el último.
+function addMonthsISO(iso: string, months: number) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const total = y * 12 + (m - 1) + months
+  const ny = Math.floor(total / 12)
+  const nm = (total % 12) + 1
+  const last = new Date(ny, nm, 0).getDate()
+  return `${ny}-${pad2(nm)}-${pad2(Math.min(d, last))}`
+}
+
+// "Heladera (3/12)" -> "Heladera"
+function stripInstallmentSuffix(desc: string) {
+  return desc.replace(/\s*\(\d+\/\d+\)\s*$/, '')
+}
+
+// Cambia la cantidad de cuotas de un gasto (o pasa un gasto normal a cuotas).
+// Borra las cuotas que sobran, crea las que faltan y renumera todas.
+// applyToAll: monto, descripción, cuenta, categoría y fechas van a todas las
+// cuotas; si no, solo a la cuota editada y a las nuevas.
+export async function updateInstallments(
+  edited: Transaction, form: TransactionFormData, newTotal: number, applyToAll: boolean
+) {
+  const k = edited.installments_total > 1 ? edited.installment_number : 1
+  if (newTotal < k) {
+    throw new Error(`Estás editando la cuota ${k}: no puede haber menos de ${k} cuotas`)
+  }
+  const parentId = edited.parent_transaction_id || edited.id
+
+  const { data, error } = await sb()
+    .from('transactions')
+    .select('*')
+    .or(`id.eq.${parentId},parent_transaction_id.eq.${parentId}`)
+  if (error) throw error
+  const rows = data as Transaction[]
+  const byNumber = new Map(rows.map(r => [r.installment_number, r]))
+  const parent = byNumber.get(1) || edited
+  const base = stripInstallmentSuffix(form.description)
+  const amount = parseFloat(form.amount)
+  // Si no se tocó la fecha, cada cuota conserva la suya y las nuevas siguen a
+  // la primera. Recalcular desde la cuota editada correría fechas ya ajustadas
+  // a fin de mes (una compra del 31 tiene cuotas el 28 o el 30).
+  const dateUnchanged = form.date === edited.date
+
+  const toDelete = rows.filter(r => r.installment_number > newTotal).map(r => r.id)
+  if (toDelete.length > 0) {
+    const { error: delError } = await sb().from('transactions').delete().in('id', toDelete)
+    if (delError) throw delError
+  }
+
+  const upserts = []
+  for (let i = 1; i <= newTotal; i++) {
+    const row = byNumber.get(i)
+    const fromForm = applyToAll || !row || row.id === edited.id
+    const desc = fromForm ? base : stripInstallmentSuffix(row!.description)
+    upserts.push({
+      id: row?.id ?? crypto.randomUUID(),
+      user_id: edited.user_id,
+      type: 'expense' as const,
+      account_id: fromForm ? form.account_id : row!.account_id,
+      category_id: fromForm ? form.category_id || null : row!.category_id,
+      subcategory_id: fromForm ? form.subcategory_id || null : row!.subcategory_id,
+      payment_method_id: row ? row.payment_method_id : parent.payment_method_id,
+      notes: row ? row.notes : parent.notes,
+      amount: fromForm ? amount : row!.amount,
+      date: row && (dateUnchanged || !fromForm)
+        ? row.date
+        : dateUnchanged ? addMonthsISO(parent.date, i - 1) : addMonthsISO(form.date, i - k),
+      description: newTotal > 1 ? `${desc} (${i}/${newTotal})` : desc,
+      installments_total: newTotal,
+      installment_number: i,
+      parent_transaction_id: i === 1 ? null : parentId,
+      status: row ? row.status : 'pending',
+      is_recurring: fromForm ? !!form.is_recurring : row!.is_recurring,
+    })
+  }
+
+  const { error: upError } = await sb().from('transactions').upsert(upserts)
+  if (upError) throw upError
+}
+
 export async function deleteTransaction(id: string) {
   const { error } = await sb()
     .from('transactions')
