@@ -1,10 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
-import { getAccounts, upsertAccount, deleteAccount } from '@/lib/api'
+import { getAccounts, upsertAccount, deleteAccount, adjustAccountBalance, setInitialBalance } from '@/lib/api'
 import { useAppStore } from '@/store/useAppStore'
 import { formatCurrency } from '@/lib/format'
-import { Plus, Edit2, Trash2, X, Wallet, CreditCard, Building2, Smartphone } from 'lucide-react'
+import { Plus, Edit2, Trash2, X, Wallet, CreditCard, Building2, Smartphone, Scale } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Account, AccountType } from '@/types'
 
@@ -36,6 +36,8 @@ export default function CuentasPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Account | null>(null)
+  // Cuenta a la que se le está ajustando el saldo (null = nadie).
+  const [adjusting, setAdjusting] = useState<Account | null>(null)
 
   async function load() {
     setLoading(true)
@@ -63,6 +65,12 @@ export default function CuentasPage() {
     .filter(a => !a.exclude_from_totals)
     .reduce((s, a) => s + a.current_balance, 0)
 
+  // Sin saldo inicial, "saldo" no es la plata que tenés: es la suma de todo lo
+  // que cargaste desde que empezaste a usar la app. Si además da negativo, es
+  // seguro que falta configurarlo.
+  const sinConfigurar = accounts.filter(a => Number(a.initial_balance) === 0 && a.current_balance < 0)
+  const necesitaAjuste = !loading && accounts.length > 0 && sinConfigurar.length > 0
+
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -78,9 +86,30 @@ export default function CuentasPage() {
         </button>
       </div>
 
+      {necesitaAjuste && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-medium text-amber-900">
+            Los saldos no arrancan de ningún lado
+          </p>
+          <p className="text-sm text-amber-900/80 mt-1">
+            {sinConfigurar.length === 1
+              ? `"${sinConfigurar[0].name}" no tiene saldo inicial, así que lo que ves no es la plata que hay: es la suma de todo lo cargado.`
+              : `${sinConfigurar.length} cuentas no tienen saldo inicial, así que lo que ves no es la plata que hay: es la suma de todo lo cargado.`}
+            {' '}Decí cuánto tenés hoy en cada una con <b>Ajustar saldo</b> y los números empiezan a cerrar.
+          </p>
+          <button
+            onClick={() => setAdjusting(sinConfigurar[0])}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-amber-900 px-3 py-2 text-sm font-medium text-white hover:bg-amber-800"
+          >
+            <Scale size={15} /> Ajustar {sinConfigurar[0].name}
+          </button>
+        </div>
+      )}
+
       <div className="space-y-2">
         {accounts.map(acc => {
           const Icon = typeIcons[acc.type] || Wallet
+          const sinSaldoInicial = Number(acc.initial_balance) === 0 && acc.current_balance < 0
           return (
             <div key={acc.id}
               className="flex items-center gap-3 bg-white rounded-2xl border border-gray-100 px-4 py-3 hover:border-gray-200 group transition-all"
@@ -97,20 +126,33 @@ export default function CuentasPage() {
                 <p className={`text-sm font-semibold ${acc.current_balance < 0 ? 'text-red-500' : 'text-gray-900'}`}>
                   {formatCurrency(acc.current_balance, acc.currency)}
                 </p>
-                {acc.type === 'credit_card' && acc.credit_limit && (
-                  <p className="text-xs text-gray-400">
+                {sinSaldoInicial ? (
+                  <button onClick={() => setAdjusting(acc)}
+                    className="text-xs text-amber-700 underline underline-offset-2 hover:text-amber-900">
+                    sin saldo inicial
+                  </button>
+                ) : acc.type === 'credit_card' && acc.credit_limit ? (
+                  <p className="text-xs text-gray-500">
                     Límite: {formatCurrency(acc.credit_limit, acc.currency, true)}
                   </p>
-                )}
+                ) : null}
               </div>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+              {/* En el celular no hay hover: las acciones se ven siempre. */}
+              <div className="flex gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-1">
+                <button onClick={() => setAdjusting(acc)}
+                  aria-label={`Ajustar saldo de ${acc.name}`} title="Ajustar saldo"
+                  className="p-2.5 text-gray-400 hover:text-emerald-600 transition-colors rounded-lg hover:bg-emerald-50">
+                  <Scale size={16} />
+                </button>
                 <button onClick={() => { setEditing(acc); setShowForm(true) }}
-                  className="p-1.5 text-gray-300 hover:text-blue-500 transition-colors rounded-lg hover:bg-blue-50">
-                  <Edit2 size={14} />
+                  aria-label={`Editar ${acc.name}`} title="Editar"
+                  className="p-2.5 text-gray-400 hover:text-blue-500 transition-colors rounded-lg hover:bg-blue-50">
+                  <Edit2 size={16} />
                 </button>
                 <button onClick={() => handleDelete(acc)}
-                  className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
-                  <Trash2 size={14} />
+                  aria-label={`Desactivar ${acc.name}`} title="Desactivar"
+                  className="p-2.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
@@ -131,6 +173,129 @@ export default function CuentasPage() {
           onSuccess={() => { setShowForm(false); setEditing(null); load() }}
         />
       )}
+
+      {adjusting && (
+        <AdjustBalance
+          account={adjusting}
+          onClose={() => setAdjusting(null)}
+          onSuccess={() => { setAdjusting(null); load() }}
+        />
+      )}
+    </div>
+  )
+}
+
+// Ajustar el saldo de una cuenta: en vez de pedir el saldo inicial (que hay que
+// calcular a mano), pregunta cuánta plata hay hoy y despeja el inicial para que
+// el número cierre. No toca ningún movimiento.
+function AdjustBalance({ account, onClose, onSuccess }: {
+  account: Account
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [onClose])
+
+  const target = value === '' ? null : parseFloat(value)
+  const valido = target !== null && !isNaN(target)
+  // Lo que se va a guardar como saldo inicial para que el actual dé "target".
+  const nuevoInicial = valido
+    ? target - Number(account.current_balance) + Number(account.initial_balance)
+    : null
+
+  async function save() {
+    if (!valido) return
+    setSaving(true)
+    try {
+      await adjustAccountBalance(account.id, target!)
+      toast.success(`Saldo de ${account.name} ajustado`)
+      onSuccess()
+    } catch (e: any) {
+      toast.error(e.message || 'No pudimos guardar el ajuste')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div role="dialog" aria-modal="true" aria-labelledby="ajuste-titulo"
+        className="relative bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-5 shadow-xl max-h-[90dvh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h2 id="ajuste-titulo" className="font-semibold">Ajustar saldo · {account.name}</h2>
+          <button onClick={onClose} aria-label="Cerrar" className="p-2 -mr-2 text-gray-400 hover:text-gray-600">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="rounded-xl bg-gray-50 p-3 text-sm text-gray-600">
+          Hoy la app calcula{' '}
+          <b className={account.current_balance < 0 ? 'text-red-600' : 'text-gray-900'}>
+            {formatCurrency(account.current_balance, account.currency)}
+          </b>{' '}
+          sumando tus movimientos
+          {Number(account.initial_balance) === 0 && <>, sin ningún saldo de partida</>}.
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="saldo-real" className="text-sm text-gray-700 mb-1.5 block font-medium">
+            ¿Cuánta plata tenés hoy en esta cuenta?
+          </label>
+          <div className="flex items-center gap-2 rounded-xl border-2 border-gray-200 px-4 py-3 focus-within:border-emerald-400">
+            <span className="text-xl text-gray-400">$</span>
+            <input
+              id="saldo-real"
+              ref={inputRef}
+              type="number"
+              step="0.01"
+              inputMode="decimal"
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') save() }}
+              placeholder="0"
+              className="flex-1 text-xl font-semibold text-gray-900 outline-none bg-transparent placeholder-gray-300"
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            {account.type === 'credit_card'
+              ? 'En una tarjeta, la deuda va en negativo (ej: −180000).'
+              : 'Mirá el homebanking o contá la plata: el número de hoy, sin centavos si no querés.'}
+          </p>
+        </div>
+
+        {valido && (
+          <p className="mt-4 text-sm text-emerald-800 bg-emerald-50 rounded-xl p-3">
+            Se guarda un saldo de partida de{' '}
+            <b>{formatCurrency(nuevoInicial!, account.currency)}</b> para que la cuenta muestre{' '}
+            <b>{formatCurrency(target!, account.currency)}</b>. Tus movimientos no se tocan.
+          </p>
+        )}
+
+        <div className="flex gap-2 mt-5">
+          <button onClick={onClose}
+            className="flex-1 border border-gray-200 rounded-xl py-3 text-sm text-gray-600 hover:bg-gray-50">
+            Cancelar
+          </button>
+          <button onClick={save} disabled={!valido || saving}
+            className="flex-1 bg-emerald-600 text-white rounded-xl py-3 text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">
+            {saving ? 'Guardando...' : 'Guardar saldo'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -161,18 +326,23 @@ function AccountForm({ account, onClose, onSuccess }: {
   async function onSubmit(data: any) {
     setSubmitting(true)
     try {
+      const inicial = parseFloat(data.initial_balance) || 0
       await upsertAccount({
         ...(account?.id ? { id: account.id } : {}),
         name: data.name,
         type: data.type,
         currency: data.currency,
-        initial_balance: parseFloat(data.initial_balance) || 0,
+        // Al crear, el saldo inicial va en el alta. Al editar se guarda aparte,
+        // porque hay que mover el saldo actual junto con él (el trigger de la
+        // base solo recalcula cuando cambia un movimiento).
+        ...(account?.id ? {} : { initial_balance: inicial }),
         credit_limit: data.credit_limit ? parseFloat(data.credit_limit) : null,
         closing_day: data.closing_day ? parseInt(data.closing_day) : null,
         due_day: data.due_day ? parseInt(data.due_day) : null,
         color: data.color,
         exclude_from_totals: data.exclude_from_totals,
       })
+      if (account?.id) await setInitialBalance(account.id, inicial)
       toast.success(isNew ? 'Cuenta creada' : 'Cuenta actualizada')
       onSuccess()
     } catch (e: any) {
@@ -222,10 +392,15 @@ function AccountForm({ account, onClose, onSuccess }: {
 
           <div>
             <label className="text-xs text-gray-500 mb-1 block">
-              {isNew ? 'Saldo inicial' : 'Saldo inicial (no modifica historial)'}
+              {isNew ? 'Saldo inicial' : 'Saldo de partida'}
             </label>
             <input {...register('initial_balance')} type="number" step="0.01"
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400" />
+            <p className="text-xs text-gray-500 mt-1">
+              {isNew
+                ? 'La plata que ya hay en la cuenta antes de cargar movimientos.'
+                : 'Cambia el saldo de la cuenta sin tocar los movimientos. Si no sabés cuánto poner, usá "Ajustar saldo" y escribí lo que tenés hoy.'}
+            </p>
           </div>
 
           {selectedType === 'credit_card' && (

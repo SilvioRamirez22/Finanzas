@@ -153,6 +153,14 @@ export default function DashboardPage() {
     .filter(a => a.is_active && !a.exclude_from_totals)
     .reduce((s, a) => s + a.current_balance, 0)
 
+  // Una cuenta sin saldo inicial y en negativo no está mostrando plata: está
+  // mostrando la suma de todo lo cargado desde que empezó a usarse la app.
+  // Mientras pase eso, decirle "Saldo total" al número es mentir.
+  const saldosSinConfigurar = accounts.some(a =>
+    a.is_active && !a.exclude_from_totals &&
+    Number(a.initial_balance) === 0 && a.current_balance < 0
+  )
+
   return (
     <div className="grid lg:grid-cols-[1fr_380px] gap-4">
       {/* ===== COLUMNA IZQUIERDA ===== */}
@@ -319,13 +327,23 @@ export default function DashboardPage() {
         {/* Saldo total */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Saldo total</h3>
+            <h3 className="text-sm font-semibold text-gray-900">
+              {saldosSinConfigurar ? 'Movimiento acumulado' : 'Saldo total'}
+            </h3>
             <Link href="/cuentas" className="text-xs text-gray-400 hover:text-gray-700">Cuentas</Link>
           </div>
           <p className={`text-2xl sm:text-3xl font-semibold mt-1 tracking-tight break-words ${totalSaldo >= 0 ? 'text-gray-900' : 'text-red-600'}`}
              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
             {totalSaldo < 0 ? '−' : ''}$ {formatCurrency(Math.abs(totalSaldo)).replace(/^\$\s?/, '')}
           </p>
+          {saldosSinConfigurar && (
+            <p className="text-[11px] text-amber-700 mt-1">
+              No es la plata que tenés: es la suma de lo cargado, sin saldo de partida.{' '}
+              <Link href="/cuentas" className="underline underline-offset-2 font-medium">
+                Configurar saldos
+              </Link>
+            </p>
+          )}
           <div className="mt-3 divide-y divide-gray-100">
             {accounts.filter(a => a.is_active).map(a => (
               <div key={a.id} className="flex items-center justify-between py-2 text-sm">

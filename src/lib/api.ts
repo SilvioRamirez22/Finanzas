@@ -271,6 +271,51 @@ export async function upsertAccount(account: Partial<Account>) {
   return data as Account
 }
 
+// ---- Saldos ----
+//
+// current_balance = initial_balance + suma de los movimientos, y lo recalcula
+// un trigger que solo se dispara cuando cambia un movimiento. Por eso, cuando
+// tocamos el saldo inicial desde acá, hay que mover el actual por la misma
+// diferencia: si no, la pantalla sigue mostrando el número viejo hasta que se
+// cargue el próximo gasto.
+
+async function getBalances(id: string) {
+  const { data, error } = await sb()
+    .from('accounts')
+    .select('initial_balance, current_balance')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  return {
+    initial: Number(data.initial_balance),
+    current: Number(data.current_balance),
+  }
+}
+
+// "Tengo $X en esta cuenta": calcula el saldo inicial que hace que el saldo
+// actual dé exactamente X, sin tocar ningún movimiento.
+export async function adjustAccountBalance(id: string, target: number) {
+  const { initial, current } = await getBalances(id)
+  const newInitial = target - current + initial
+  const { error } = await sb()
+    .from('accounts')
+    .update({ initial_balance: newInitial, current_balance: target })
+    .eq('id', id)
+  if (error) throw error
+  return { newInitial, previous: current }
+}
+
+// Editar el saldo inicial a mano (desde el formulario de la cuenta).
+export async function setInitialBalance(id: string, newInitial: number) {
+  const { initial, current } = await getBalances(id)
+  if (newInitial === initial) return
+  const { error } = await sb()
+    .from('accounts')
+    .update({ initial_balance: newInitial, current_balance: current + (newInitial - initial) })
+    .eq('id', id)
+  if (error) throw error
+}
+
 export async function deleteAccount(id: string) {
   const { error } = await sb()
     .from('accounts')
