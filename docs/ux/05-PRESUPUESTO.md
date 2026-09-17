@@ -87,9 +87,9 @@ start_date)`. Alcanza; lo que falta es **usarlos**:
 - Dejar de presupuestar una categoría: `end_date` = último día de M−1 (no `is_active = false`:
   eso borraría la historia).
 
-Migración: las filas actuales pasan a tener `start_date` = el mes desde el que querés que valgan
-(propuesta: el mes en que se creó el presupuesto, que es lo que hoy guarda el default) y
-`end_date = NULL`.
+Migración: **ninguna**. Verificado el 2026-09-17: la tabla `budgets` está **vacía** en
+producción. Todo lo de arriba se estrena en limpio, y el asistente de primera vez (§5.3) deja de
+ser un caso borde — es la pantalla que vas a ver la primera vez que entres.
 
 ### 3.2 Plan mensual (tabla nueva, chica)
 

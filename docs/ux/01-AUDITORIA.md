@@ -63,7 +63,11 @@ frecuencia.
 `localStorage`); categoría = grilla de chips ordenada por uso de los últimos 90 días + "Más…"
 para el resto. Detalle en `03-FLUJO-MOVIMIENTO.md`.
 
-### A4 · P1 — Categoría opcional que rompe los reportes en silencio
+### A4 · ~~P1~~ → P2 — Categoría opcional que rompe los reportes en silencio
+> **Verificado:** hoy hay **1 solo** movimiento sin categoría ($314.000, junio 2026) sobre
+> 1.115. El agujero existe pero no está sangrando: baja a P2. La fila "Sin categoría" del
+> desglose sigue valiendo la pena, porque cuando pasa no hay forma de darse cuenta.
+
 `src/components/forms/QuickAddModal.tsx:261` ("Sin categoría") · `get_expenses_by_category`
 agrupa por categoría
 
@@ -135,12 +139,13 @@ selector de mes/año. Ver `04-GLOBAL-DASHBOARD.md`.
 
 ---
 
-## D — Datos y correctitud (verificar contra la base de producción)
+## D — Datos y correctitud
 
-> El SQL del repo puede estar desfasado de lo que corre en Supabase. Dos de estos hallazgos
-> dependen de eso; en `06-PREGUNTAS.md` está el chequeo de 2 minutos para confirmarlos.
+> **Verificado contra producción el 2026-09-17** (proyecto `wkerkhekdapwvmqtzurd`, consultas de
+> solo lectura). Dos hallazgos quedaron descartados y aparecieron tres nuevos que desde el
+> código no se veían. Lo verificado está marcado en cada uno.
 
-### D1 · P0 — Las cuotas se guardan divididas: el monto que ingresás no es el que queda
+### D1 · ~~P0~~ → **descartado** — Las cuotas NO se guardan divididas
 `src/lib/api.ts:50-67` · `create_installments` en `sql/INSTALAR_TODO.sql`
 
 El formulario dice literalmente "Este es el valor de **cada cuota**" y muestra
@@ -148,27 +153,38 @@ El formulario dice literalmente "Este es el valor de **cada cuota**" y muestra
 ese número como `p_total_amount`, y la función SQL hace
 `v_installment_amount := ROUND(p_total_amount / p_installments, 2)`.
 
-Resultado: cargás 12 cuotas de $10.000 y quedan **12 cuotas de $833,33**. El camino de edición
-(`updateInstallments`, `api.ts:140-200`) sí trata el monto como valor por cuota, así que crear
-y editar el mismo gasto dan resultados distintos.
+**Verificado: la función que corre en Supabase no divide.** Su cuerpo real es:
 
-**Arreglo:** elegir una semántica (recomiendo *monto por cuota*, que es como llega el resumen
-de la tarjeta) y alinear los tres lugares: copy, `createTransaction` y la función SQL. Si se
-elige *total*, el copy pasa a "Total de la compra" y hay que mostrar "= $X por mes".
+```
+v_installment_amount NUMERIC;
+v_installment_amount := p_total_amount;
+```
 
-### D2 · P0 — Firmas de las funciones SQL: el repo pide `p_user_id`, la app no lo manda
-`src/lib/api.ts:220-243` vs `get_month_summary` / `get_expenses_by_category` /
-`get_monthly_evolution` en `sql/INSTALAR_TODO.sql`
+O sea que el monto que se ingresa se guarda tal cual en cada cuota, igual que dice el copy y
+que el camino de edición (`updateInstallments`). **El código de la app está bien; el archivo
+del repo es el que está viejo** (ver D2). No hay que tocar nada más que el SQL versionado.
 
-En el repo las tres funciones reciben `p_user_id UUID` como primer parámetro; la app las llama
-solo con fechas. Si en Supabase estuviera la versión del repo, el dashboard tiraría `PGRST202`
-y, como `load()` no tiene `catch` (`dashboard/page.tsx:52-88`), la excepción quedaría como
-*unhandled rejection*: categorías vacías y **ningún mensaje de error en pantalla**. Como el
-dashboard funciona, en producción hay otra versión (con `auth.uid()`).
+### D2 · P0 — El SQL del repo no es el que corre en producción
+`sql/INSTALAR_TODO.sql` vs lo que devuelve `pg_proc` en Supabase
 
-**Arreglo:** (a) versionar de verdad las migraciones (`sql/migrations/00X_*.sql`) y que el repo
-refleje lo que corre; (b) pase lo que pase, ningún `load()` sin `catch` + estado de error
-visible.
+Firmas reales, verificadas:
+
+| Función | En producción | En el repo |
+|---|---|---|
+| `get_month_summary` | `p_year int, p_month int` | `p_user_id uuid, p_year, p_month` |
+| `get_expenses_by_category` | `p_start_date date, p_end_date date` | `p_user_id uuid, …` |
+| `get_monthly_evolution` | `p_months int` | `p_user_id uuid, p_months` |
+| `create_installments` | igual que el repo, **pero sin la división** (ver D1) | con `ROUND(p_total/p_installments)` |
+
+La app llama a las de producción, así que **funciona**. El problema es el archivo: quien corra
+`sql/INSTALAR_TODO.sql` sobre esta base (o sobre una nueva) reemplaza las funciones buenas por
+las viejas y rompe el dashboard y las cuotas de una. Es una bomba de tiempo en el repo, no un
+bug en pantalla.
+
+**Arreglo:** volcar las definiciones reales desde producción a `sql/migrations/` numeradas,
+dejar `INSTALAR_TODO.sql` como instalación desde cero coherente con ellas, y no volver a editar
+SQL en el dashboard sin bajarlo al repo. Aparte, y aunque esto no haya fallado: ningún `load()`
+sin `catch` (P2).
 
 ### D3 · P0 — El historial de cumplimiento compara peras con manzanas
 `src/app/presupuestos/page.tsx:44-58`
@@ -213,7 +229,50 @@ ninguna pantalla (`movimientos` filtra tipo, categoría, cuenta y monto; no esta
 línea aparte "comprometido a futuro (cuotas): $X". El presupuesto usa las cuotas del mes como
 gasto comprometido, que es exactamente lo que son.
 
-### D6 · P1 — Se suman monedas distintas
+### D10 · P0 — Los saldos no arrancan de ningún lado: el "Saldo total" hoy es −$13.505.586
+Verificado en producción (`accounts`, 6 cuentas activas, todas ARS):
+
+| Cuenta | Tipo | `initial_balance` | `current_balance` | Movimientos |
+|---|---|---|---|---|
+| Efectivo | cash | **0,00** | −10.800.323,91 | 788 |
+| Mercado Pago | digital_wallet | **0,00** | −2.874.811,33 | 143 |
+| Cuenta bancaria | bank | **0,00** | −1.501.047,82 | 83 |
+| BBVA | credit_card | **0,00** | −1.275.570,06 | 57 |
+| Santander | bank | **0,00** | −296.761,00 | 15 |
+| Galicia | credit_card | **0,00** | +3.242.928,00 | 29 |
+
+Ninguna cuenta tiene saldo inicial, así que `current_balance` no es plata: es la suma de todo
+lo cargado desde octubre de 2024. El trigger funciona perfecto; lo que falta es el punto de
+partida. Hoy el dashboard muestra **−$13,5 M** como "Saldo total" y las cuentas en rojo.
+
+Esto además **bloquea el rediseño**: la tarjeta "Disponible" que propongo como primer dato de
+la pantalla (`04-GLOBAL-DASHBOARD.md`) no puede mostrar un número que no existe.
+
+**Arreglo:** en `/cuentas`, acción "Ajustar saldo": escribís lo que hay hoy en la cuenta y se
+crea un movimiento de ajuste por la diferencia (categoría "Ajuste", excluible de los reportes),
+o se escribe el `initial_balance`. Lo primero es mejor: deja rastro y no reescribe la historia.
+Mientras no haya saldo real, el dashboard muestra "Movimiento acumulado" en vez de "Disponible",
+con un enlace para configurarlo — decir la verdad en vez de un número inventado.
+
+### D11 · P1 — Las tarjetas de crédito llevan el signo al revés
+Galicia (`credit_card`) tiene **+$3.242.928** y BBVA (`credit_card`) −$1.275.570: dos tarjetas,
+dos convenciones. Con `initial_balance = 0`, una tarjeta debería ir acumulando deuda (negativo)
+y los pagos del resumen restarla; un saldo positivo grande significa que los pagos entraron
+como ingresos o transferencias mal orientadas.
+
+**Arreglo:** definir la convención (deuda = negativo), tratar el pago del resumen como
+transferencia desde la cuenta bancaria hacia la tarjeta, y mostrar en `/cuentas` "deuda" en vez
+de "saldo" cuando el tipo es `credit_card`. Va junto con F2 (ciclo de la tarjeta).
+
+### D12 · P2 — La marca de "gasto fijo" casi no se usa
+3 movimientos marcados como `is_recurring` sobre **1.115** cargados. El aviso "faltan cargar"
+del dashboard y el botón "cargar los fijos del mes" (F3) no tienen de dónde agarrarse.
+
+**Arreglo:** detectar candidatos automáticamente (misma descripción y monto parecido 3 meses
+seguidos) y ofrecer "marcarlos como fijos" en un solo paso, en vez de esperar que se marquen de
+a uno.
+
+### D6 · ~~P1~~ → P2 — Se suman monedas distintas
 `src/store/useAppStore.ts:60-66` · `src/app/dashboard/page.tsx:152` ·
 `src/app/cuentas/page.tsx:60`
 
@@ -222,8 +281,9 @@ gasto comprometido, que es exactamente lo que son.
 pesos. Con una caja de ahorro en USD, el "Saldo total" del dashboard queda mal por un factor
 ~1.000 y no hay ningún aviso.
 
-**Arreglo mínimo hoy:** totalizar solo ARS y mostrar las otras monedas como líneas aparte
-("USD 1.200"), nunca sumadas. Multi-moneda con tipo de cambio: ver `06-PREGUNTAS.md`.
+**Verificado:** hoy las 6 cuentas son ARS, así que el problema no está afectando nada todavía;
+por eso baja a P2. Igual conviene arreglarlo antes de abrir la primera cuenta en dólares:
+totalizar solo ARS y mostrar las otras monedas como líneas aparte ("USD 1.200"), nunca sumadas.
 
 ### D7 · P1 — Los centavos se pierden en pantalla y eso no se dice
 `src/lib/format.ts:10-17` (`maximumFractionDigits: 0`)
@@ -524,8 +584,13 @@ offline real necesita decidir estrategia de caché (y el SW hoy es un kill switc
 
 | | Hallazgos |
 |---|---|
-| **P0** | A1 (no refresca), A2 (mes vs fecha), D1 (cuotas divididas), D2 (firmas SQL), D3 (cumplimiento mal calculado), D4 (presupuesto sin mes) |
-| **P1** | A3, A4, A5, A6, A7, D5, D6, D7, X1, X2, X3, X4, X5, X6, V1, V2, V3, P1, P2, P3, P4, F1, F2, F3 |
-| **P2** | A8, A9, A10, D8, D9, X7, X8, V4, V5, V6, V7, P5, P6, F4, F5, F6, F7 |
+| **P0** | A1 (no refresca), A2 (mes vs fecha), **D10 (saldos sin punto de partida)**, D2 (el SQL del repo rompe la base si se corre), D3 (cumplimiento mal calculado), D4 (presupuesto sin mes) |
+| **P1** | A3, A5, A6, A7, D5, D7, **D11 (signo de las tarjetas)**, X1, X2, X3, X4, X5, X6, V1, V2, V3, P1, P2, P3, P4, F1, F2, F3 |
+| **P2** | A4, A8, A9, A10, D6, D8, D9, **D12 (fijos sin marcar)**, X7, X8, V4, V5, V6, V7, P5, P6, F4, F5, F6, F7 |
+| **Descartados** | D1 (las cuotas están bien en producción) |
+
+Estado de la base al 2026-09-17: 1.115 movimientos entre el 29/10/2024 y el 24/04/2027 (las
+fechas futuras son cuotas ya generadas, 127 movimientos en cuotas), 6 cuentas activas todas en
+pesos, **0 presupuestos cargados** y 3 movimientos marcados como fijos.
 
 Orden sugerido de trabajo en `00-RESUMEN.md`.

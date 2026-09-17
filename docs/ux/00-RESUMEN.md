@@ -32,22 +32,32 @@ parte que hace que una PWA sea usable.
 Lo que falta es de otra naturaleza: **el ciclo de escritura está roto y el sistema visual no
 existe como sistema.**
 
-### Los seis P0
+### Los seis P0 (revisados contra producción el 2026-09-17)
 
 1. **Cargás un movimiento y la pantalla no cambia** (A1). El modal global solo refresca los
    saldos; el dashboard y la lista no se enteran. Es el bug más caro: te hace dudar de si el
    gasto se guardó.
 2. **El mes que mirás y la fecha del movimiento no se hablan** (A2): cargás mirando agosto y se
    guarda en septiembre, sin aviso y sin aparecer en ningún lado.
-3. **Las cuotas se guardan divididas** (D1): el formulario dice "valor de cada cuota", el SQL
-   divide por la cantidad. 12 × $10.000 queda como 12 × $833. Crear y editar dan resultados
-   distintos. *(Verificar contra producción.)*
-4. **Las firmas de las funciones SQL del repo no coinciden con las llamadas de la app** (D2):
-   o el repo está viejo, o el dashboard falla en silencio. *(Verificar.)*
+3. **Los saldos no arrancan de ningún lado** (D10, hallazgo nuevo): las 6 cuentas tienen
+   `initial_balance = 0`, así que el "Saldo total" del dashboard hoy es **−$13.505.586** — no
+   es plata, es la suma de todo lo cargado desde 2024. Bloquea la tarjeta "Disponible" del
+   rediseño.
+4. **El SQL del repo no es el que corre en producción** (D2): las funciones buenas están en
+   Supabase y el archivo `INSTALAR_TODO.sql` tiene versiones viejas. Correrlo rompe el
+   dashboard y las cuotas. No se ve en pantalla, pero está esperando.
 5. **El presupuesto no tiene mes** (D4): hay un monto por categoría para toda la eternidad;
-   editarlo hoy reescribe el pasado.
+   editarlo hoy reescribe el pasado. (La tabla `budgets` está vacía: el módulo arranca limpio.)
 6. **El gráfico de cumplimiento compara todo el gasto contra el presupuesto de hoy** (D3): dice
    "te pasaste" casi siempre.
+
+**Descartado tras verificar:** las cuotas **no** se guardan divididas (D1) — la función en
+producción no divide; el archivo del repo sí. Y sumar monedas (D6) hoy no afecta nada: las 6
+cuentas son en pesos.
+
+**Nuevos al mirar los datos:** las dos tarjetas de crédito llevan signos opuestos (D11), y solo
+3 de 1.115 movimientos están marcados como fijos (D12), así que la detección automática pasa a
+ser parte de esa feature.
 
 ### Los tres problemas transversales
 
