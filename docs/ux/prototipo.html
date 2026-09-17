@@ -1,0 +1,1087 @@
+<title>Rediseño Finanzas Personales</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    /* --- tokens propuestos para la app (02-DESIGN-SYSTEM.md) --- */
+    --bg: #F5F4F0;
+    --surface: #FFFFFF;
+    --surface-2: #FAF9F6;
+    --border: #E4E1D9;
+    --border-strong: #CFCBC1;
+    --ink-900: #1A1A17;
+    --ink-700: #454239;
+    --ink-500: #6E6B64;
+    --ink-300: #C9C5BC;
+    --brand: #047857;
+    --brand-ink: #065F46;
+    --brand-soft: #E7F3EE;
+    --pos: #0F6B4F;
+    --neg: #B0402B;
+    --warn: #8A5A06;
+    --info: #1E5FA8;
+    --pos-soft: #E6F1EC;
+    --neg-soft: #F7E9E5;
+    --warn-soft: #F6EEDC;
+    --ring: #047857;
+    --chart-in: #15803D;
+    --chart-out: #DC2626;
+    --data-1: #B0402B;
+    --on-brand: #FFFFFF;
+    /* --- chrome de esta maqueta --- */
+    --page: #EDEBE4;
+    --note: #FFFFFF;
+    --shadow-card: 0 1px 2px rgb(26 22 16 / .04), 0 1px 3px rgb(26 22 16 / .06);
+    --shadow-device: 0 24px 60px rgb(26 22 16 / .16), 0 2px 8px rgb(26 22 16 / .08);
+    --ff-ui: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --ff-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14151A;
+      --surface: #1C1E25;
+      --surface-2: #232630;
+      --border: #2C303B;
+      --border-strong: #3A3F4D;
+      --ink-900: #E9E7E2;
+      --ink-700: #C9C6BF;
+      --ink-500: #A9A59C;
+      --ink-300: #6B6F78;
+      --brand: #34D399;
+      --brand-ink: #34D399;
+      --brand-soft: #123A2E;
+      --pos: #4ADE80;
+      --neg: #FF8A72;
+      --warn: #F7C453;
+      --info: #7CB3F5;
+      --pos-soft: #10291D;
+      --neg-soft: #33150F;
+      --warn-soft: #2E2410;
+      --ring: #34D399;
+      --chart-in: #127F42;
+      --chart-out: #FB8168;
+      --data-1: #D98263;
+      --on-brand: #08221A;
+      --page: #0D0E12;
+      --note: #1A1C22;
+      --shadow-device: 0 24px 60px rgb(0 0 0 / .5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14151A;
+    --surface: #1C1E25;
+    --surface-2: #232630;
+    --border: #2C303B;
+    --border-strong: #3A3F4D;
+    --ink-900: #E9E7E2;
+    --ink-700: #C9C6BF;
+    --ink-500: #A9A59C;
+    --ink-300: #6B6F78;
+    --brand: #34D399;
+    --brand-ink: #34D399;
+    --brand-soft: #123A2E;
+    --pos: #4ADE80;
+    --neg: #FF8A72;
+    --warn: #F7C453;
+    --info: #7CB3F5;
+    --pos-soft: #10291D;
+    --neg-soft: #33150F;
+    --warn-soft: #2E2410;
+    --ring: #34D399;
+    --chart-in: #127F42;
+    --chart-out: #FB8168;
+    --data-1: #D98263;
+    --on-brand: #08221A;
+    --page: #0D0E12;
+    --note: #1A1C22;
+    --shadow-device: 0 24px 60px rgb(0 0 0 / .5);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink-900);
+    font-family: var(--ff-ui);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; letter-spacing: -.01em; }
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+
+  /* ---------- chrome de la página ---------- */
+  .wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 56px; }
+  .eyebrow {
+    font-family: var(--ff-mono); font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-500); margin: 0 0 8px;
+  }
+  h1 { font-size: clamp(24px, 4.4vw, 34px); line-height: 1.1; margin: 0 0 10px; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
+  .lede { margin: 0; max-width: 64ch; color: var(--ink-700); font-size: 15px; }
+  .topbar { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+  .ghost {
+    font: inherit; font-size: 13px; background: var(--note); color: var(--ink-700);
+    border: 1px solid var(--border); border-radius: 999px; padding: 9px 14px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px; min-height: 40px;
+  }
+  .ghost:hover { border-color: var(--border-strong); }
+
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 26px 0 18px; }
+  .tab {
+    font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; min-height: 44px;
+    background: transparent; color: var(--ink-700); border: 1px solid var(--border);
+    border-radius: 999px; padding: 8px 16px; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .tab .n { font-family: var(--ff-mono); font-size: 11px; color: var(--ink-500); }
+  .tab[aria-selected="true"] { background: var(--ink-900); color: var(--bg); border-color: var(--ink-900); }
+  .tab[aria-selected="true"] .n { color: var(--bg); opacity: .6; }
+
+  .stage { display: grid; grid-template-columns: minmax(0, 390px) minmax(0, 1fr); gap: 36px; align-items: start; }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; gap: 24px; } }
+
+  /* ---------- teléfono ---------- */
+  .device {
+    width: 100%; max-width: 390px; margin: 0 auto; background: var(--surface);
+    border: 1px solid var(--border-strong); border-radius: 30px; padding: 10px;
+    box-shadow: var(--shadow-device); position: sticky; top: 16px;
+  }
+  @media (max-width: 900px) { .device { position: static; } }
+  .screen {
+    background: var(--bg); border-radius: 22px; overflow: hidden; position: relative;
+    height: 748px; display: flex; flex-direction: column;
+  }
+  .scroll { overflow-y: auto; overscroll-behavior: contain; flex: 1; }
+  .scroll::-webkit-scrollbar { width: 0; }
+
+  /* app chrome */
+  .appbar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .appbar h2 { font-size: 14px; margin: 0; font-weight: 600; }
+  .monthbar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; padding: 4px 6px;
+  }
+  .monthbar button {
+    font: inherit; background: none; border: 0; cursor: pointer; color: var(--ink-700);
+    width: 44px; height: 44px; border-radius: 12px; font-size: 18px;
+  }
+  .monthbar button:hover { background: var(--surface-2); }
+  .monthbar .m { font-weight: 600; font-size: 14px; }
+  .monthbar .m small { display: block; font-weight: 400; font-size: 11px; color: var(--ink-500); text-align: center; }
+  .bottomnav {
+    background: var(--surface); border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: repeat(5, 1fr); text-align: center;
+  }
+  .bottomnav span {
+    font-size: 10px; color: var(--ink-500); padding: 8px 2px 10px; display: block; line-height: 1.6;
+  }
+  .bottomnav span.on { color: var(--brand); font-weight: 600; }
+  .bottomnav i { display: block; font-style: normal; font-size: 15px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 14px; box-shadow: var(--shadow-card);
+  }
+  .pad { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+  .ovl { font-family: var(--ff-mono); font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-500); }
+  .h3 { font-size: 13px; font-weight: 600; margin: 0; }
+  .meta { font-size: 12px; color: var(--ink-500); margin: 0; }
+  .hero { font-size: 30px; font-weight: 600; letter-spacing: -.02em; margin: 2px 0 0; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .divide > * + * { border-top: 1px solid var(--border); }
+  .money { font-size: 13px; font-weight: 500; }
+  .pos { color: var(--pos); } .neg { color: var(--neg); } .warn { color: var(--warn); }
+
+  /* barras */
+  .bar { position: relative; height: 9px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
+  .bar > i { position: absolute; inset: 0 auto 0 0; display: block; border-radius: 999px; background: var(--pos); }
+  .bar.is-warn > i { background: var(--warn); } .bar.is-neg > i { background: var(--neg); }
+  .bar.flat { border-radius: 4px; height: 14px; }
+  .bar.flat > i { border-radius: 4px; background: var(--data-1); }
+  .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink-900); border-radius: 2px; }
+  .mark.lim { background: var(--border-strong); }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--ink-500); }
+  .legend b { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 8px 9px; }
+  .tile .k { font-size: 10px; color: var(--ink-500); display: block; }
+  .tile .v { font-size: 14px; font-weight: 600; }
+
+  .alert { display: flex; gap: 9px; align-items: flex-start; padding: 9px 0; }
+  .alert .dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex: 0 0 auto; }
+  .alert p { margin: 0; font-size: 12.5px; line-height: 1.4; }
+  .alert .act { font-size: 12px; font-weight: 600; color: var(--brand-ink); white-space: nowrap; }
+
+  .catrow { width: 100%; text-align: left; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; padding: 7px 0; display: grid; gap: 5px; }
+  .catrow:hover { background: var(--surface-2); }
+  .catrow .top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .catrow .nm { font-size: 13px; }
+  .detail { border-left: 2px solid var(--border); margin: 0 0 8px 8px; padding: 2px 0 2px 10px; display: grid; gap: 6px; }
+  .detail .l { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--ink-700); }
+  .detail .l small { display: block; color: var(--ink-500); font-size: 11px; }
+
+  /* sheet de carga */
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 3px; gap: 3px; }
+  .seg button { font: inherit; font-size: 13px; font-weight: 500; min-height: 40px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-500); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink-900); box-shadow: var(--shadow-card); }
+  .amount { text-align: center; padding: 10px 0 2px; }
+  .amount .v { font-size: 40px; font-weight: 600; letter-spacing: -.03em; line-height: 1; }
+  .amount .v.zero { color: var(--ink-300); }
+  .amount .sub { font-size: 12px; color: var(--ink-500); margin-top: 7px; min-height: 17px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    font: inherit; font-size: 12.5px; cursor: pointer; min-height: 40px; padding: 7px 11px;
+    background: var(--surface); color: var(--ink-700); border: 1px solid var(--border);
+    border-radius: 999px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip .ic { width: 16px; height: 16px; border-radius: 5px; display: inline-block; flex: 0 0 auto; }
+  .chip[aria-pressed="true"] { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-ink); font-weight: 600; }
+  .chip.sm { min-height: 36px; padding: 5px 11px; }
+  .fieldlab { font-size: 11px; font-weight: 500; color: var(--ink-500); display: block; margin-bottom: 6px; }
+  details.more { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 10px 0; }
+  details.more summary { cursor: pointer; font-size: 13px; color: var(--brand-ink); font-weight: 500; list-style: none; display: flex; align-items: center; gap: 7px; min-height: 30px; }
+  details.more summary::-webkit-details-marker { display: none; }
+  details.more .inner { display: grid; gap: 12px; padding-top: 12px; }
+  .switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .switch small { display: block; color: var(--ink-500); font-size: 11px; }
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border-top: 1px solid var(--border); }
+  .keypad button {
+    font: inherit; font-family: var(--ff-ui); font-size: 21px; font-weight: 500; background: var(--surface);
+    color: var(--ink-900); border: 0; height: 54px; cursor: pointer;
+  }
+  .keypad button:active { background: var(--brand-soft); }
+  .keypad button.aux { font-size: 15px; color: var(--ink-700); }
+  .sheetfoot { background: var(--surface); border-top: 1px solid var(--border); padding: 10px 12px 12px; display: grid; gap: 8px; }
+  .primary {
+    font: inherit; font-size: 14px; font-weight: 600; background: var(--brand);
+    border: 0; border-radius: 13px; min-height: 48px; cursor: pointer; width: 100%;
+  }
+  .primary { color: var(--on-brand); }
+  .primary[disabled] { background: var(--border); color: var(--ink-500); cursor: not-allowed; }
+  .secondary { font: inherit; font-size: 13px; font-weight: 500; background: none; border: 0; color: var(--brand-ink); min-height: 40px; cursor: pointer; }
+  .inputmoney {
+    font: inherit; font-family: var(--ff-ui); font-size: 15px; font-weight: 500; text-align: right;
+    width: 118px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface); color: var(--ink-900);
+  }
+  .banner { background: var(--warn-soft); border: 1px solid var(--warn); border-radius: 12px; padding: 9px 11px; font-size: 12px; color: var(--ink-900); display: flex; gap: 8px; align-items: flex-start; }
+  .sticky-assign { position: sticky; top: 0; z-index: 2; background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 12px; }
+
+  /* ---------- notas ---------- */
+  .notes { display: grid; gap: 16px; }
+  .notecard { background: var(--note); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+  .notecard h3 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .notecard .sub { margin: 0 0 14px; font-size: 13px; color: var(--ink-500); }
+  ol.ann { list-style: none; counter-reset: a; margin: 0; padding: 0; display: grid; gap: 12px; }
+  ol.ann li { counter-increment: a; display: grid; grid-template-columns: 26px 1fr; gap: 11px; font-size: 13.5px; color: var(--ink-700); line-height: 1.5; }
+  ol.ann li::before {
+    content: counter(a); font-family: var(--ff-mono); font-size: 11px; color: var(--ink-500);
+    border: 1px solid var(--border); border-radius: 50%; width: 24px; height: 24px;
+    display: grid; place-items: center; margin-top: 1px;
+  }
+  ol.ann b { color: var(--ink-900); font-weight: 600; }
+  .fix {
+    font-family: var(--ff-mono); font-size: 10.5px; padding: 1px 6px; border-radius: 5px;
+    background: var(--brand-soft); color: var(--brand-ink); white-space: nowrap; margin-left: 4px;
+  }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+  .sw { display: grid; gap: 5px; font-size: 11px; color: var(--ink-500); }
+  .sw i { display: block; width: 62px; height: 34px; border-radius: 9px; border: 1px solid var(--border); }
+  .sw code { font-family: var(--ff-mono); font-size: 10px; color: var(--ink-700); }
+  table.ratio { border-collapse: collapse; font-size: 12.5px; width: 100%; }
+  table.ratio th, table.ratio td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  table.ratio th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-500); font-weight: 500; }
+  .foot { margin-top: 40px; font-size: 12.5px; color: var(--ink-500); border-top: 1px solid var(--border); padding-top: 16px; }
+</style>
+
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <p class="eyebrow">Prototipo · 17 sep 2026 · pantallas propuestas</p>
+      <h1>Rediseño Finanzas Personales</h1>
+      <p class="lede">
+        Las cuatro pantallas que cambian: cargar un movimiento en tres toques, el resumen del mes
+        reordenado, y el módulo de presupuesto que todavía no existe. Todo es interactivo: el
+        teclado suma, las categorías se eligen y el plan recalcula lo que queda sin asignar.
+        Los datos son de ejemplo, pero cierran entre pantallas.
+      </p>
+    </div>
+    <button class="ghost" id="theme" type="button" aria-live="polite">Ver en oscuro</button>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Pantallas">
+    <button class="tab" role="tab" id="t1" aria-controls="s1" aria-selected="true"><span class="n">01</span> Cargar movimiento</button>
+    <button class="tab" role="tab" id="t2" aria-controls="s2" aria-selected="false"><span class="n">02</span> Resumen del mes</button>
+    <button class="tab" role="tab" id="t3" aria-controls="s3" aria-selected="false"><span class="n">03</span> Presupuesto</button>
+    <button class="tab" role="tab" id="t4" aria-controls="s4" aria-selected="false"><span class="n">04</span> Armar el plan</button>
+  </div>
+
+  <div class="stage">
+    <!-- ================= TELÉFONO ================= -->
+    <div class="device">
+
+      <!-- ---------- 01 · CARGAR ---------- -->
+      <div class="screen" id="s1" role="tabpanel" aria-labelledby="t1">
+        <div class="appbar">
+          <h2>Nuevo movimiento</h2>
+          <button class="ghost" type="button" style="min-height:36px;padding:6px 10px;font-size:12px">Cerrar</button>
+        </div>
+        <div class="scroll">
+          <div class="pad">
+            <div class="seg" role="group" aria-label="Tipo de movimiento">
+              <button type="button" data-type="expense" aria-pressed="true">Gasto</button>
+              <button type="button" data-type="income" aria-pressed="false">Ingreso</button>
+              <button type="button" data-type="transfer" aria-pressed="false">Transfer.</button>
+            </div>
+
+            <div class="amount">
+              <div class="v num zero" id="amt">$ 0</div>
+              <div class="sub" id="amtsub">Alimentación · Efectivo · hoy</div>
+            </div>
+
+            <div>
+              <span class="fieldlab">Categoría <span style="color:var(--ink-300)">— ordenadas por uso</span></span>
+              <div class="chips" id="cats" role="group" aria-label="Categoría">
+                <button class="chip" type="button" aria-pressed="true" data-cat="Alimentación"><i class="ic" style="background:#1D9E75"></i>Alimentación</button>
+                <button class="chip" type="button" aria-pressed="false" data-cat="Transporte"><i class="ic" style="background:#378ADD"></i>Transporte</button>
+                <button class="chip" type="button" aria-pressed="false" data-cat="Vivienda"><i class="ic" style="background:#D85A30"></i>Vivienda</button>
+                <button class="chip" type="button" aria-pressed="false" data-cat="Delivery"><i class="ic" style="background:#BA7517"></i>Delivery</button>
+                <button class="chip" type="button" aria-pressed="false" data-cat="Servicios"><i class="ic" style="background:#888780"></i>Servicios</button>
+                <button class="chip" type="button" aria-pressed="false" data-cat="">Más…</button>
+              </div>
+            </div>
+
+            <div>
+              <span class="fieldlab">Fecha</span>
+              <div class="chips" id="dates" role="group" aria-label="Fecha">
+                <button class="chip sm" type="button" aria-pressed="true" data-date="hoy">Hoy</button>
+                <button class="chip sm" type="button" aria-pressed="false" data-date="ayer">Ayer</button>
+                <button class="chip sm" type="button" aria-pressed="false" data-date="otra">Otra fecha</button>
+              </div>
+            </div>
+
+            <div>
+              <span class="fieldlab">Cuenta <span style="color:var(--ink-300)">— la última que usaste</span></span>
+              <div class="chips" id="accs" role="group" aria-label="Cuenta">
+                <button class="chip sm" type="button" aria-pressed="true" data-acc="Efectivo">Efectivo</button>
+                <button class="chip sm" type="button" aria-pressed="false" data-acc="Banco">Banco</button>
+                <button class="chip sm" type="button" aria-pressed="false" data-acc="Mercado Pago">Mercado Pago</button>
+              </div>
+            </div>
+
+            <details class="more">
+              <summary>＋ Descripción, medio de pago, cuotas, gasto fijo</summary>
+              <div class="inner">
+                <div>
+                  <label class="fieldlab" for="desc">Descripción <span style="color:var(--ink-300)">— opcional</span></label>
+                  <input id="desc" type="text" placeholder="Coto, Shell, expensas…" style="width:100%;font:inherit;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--ink-900)">
+                  <div class="chips" style="margin-top:7px">
+                    <button class="chip sm" type="button">Coto $48.200</button>
+                    <button class="chip sm" type="button">Verdulería $12.000</button>
+                  </div>
+                </div>
+                <div>
+                  <span class="fieldlab">Medio de pago</span>
+                  <div class="chips" id="pms" role="group" aria-label="Medio de pago">
+                    <button class="chip sm" type="button" aria-pressed="true" data-pm="Efectivo">Efectivo</button>
+                    <button class="chip sm" type="button" aria-pressed="false" data-pm="Débito">Débito</button>
+                    <button class="chip sm" type="button" aria-pressed="false" data-pm="Crédito">Crédito</button>
+                  </div>
+                </div>
+                <div class="switch">
+                  <label for="cuotas" style="font-size:13px">Pago en cuotas
+                    <small>Se crean las cuotas futuras, una por mes</small>
+                  </label>
+                  <input id="cuotas" type="checkbox">
+                </div>
+                <div class="row" id="cuotasbox" hidden>
+                  <label for="ncuotas" style="font-size:13px">Cantidad de cuotas</label>
+                  <input id="ncuotas" class="inputmoney num" type="number" min="2" max="120" value="12" style="width:76px">
+                </div>
+                <div class="switch">
+                  <label for="fijo" style="font-size:13px">Gasto fijo
+                    <small>Se repite todos los meses (expensas, luz…)</small>
+                  </label>
+                  <input id="fijo" type="checkbox">
+                </div>
+              </div>
+            </details>
+
+            <div class="banner" id="monthwarn" hidden>
+              <span aria-hidden="true">◑</span>
+              <span>Se va a guardar en <b>septiembre</b> y estás viendo agosto.
+                <button class="secondary" type="button" style="min-height:0;padding:0;text-decoration:underline">Usar 31 de agosto</button>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="keypad" id="keypad" role="group" aria-label="Teclado numérico">
+          <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+          <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+          <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+          <button type="button" class="aux" data-k="000">000</button><button type="button" data-k="0">0</button>
+          <button type="button" class="aux" data-k="del" aria-label="Borrar">⌫</button>
+        </div>
+        <div class="sheetfoot">
+          <button class="primary" id="save" type="button" disabled>Falta el monto</button>
+          <button class="secondary" type="button">Guardar y cargar otro</button>
+        </div>
+      </div>
+
+      <!-- ---------- 02 · RESUMEN ---------- -->
+      <div class="screen" id="s2" role="tabpanel" aria-labelledby="t2" hidden>
+        <div class="monthbar">
+          <button type="button" aria-label="Mes anterior">‹</button>
+          <span class="m">septiembre 2026 <small>día 17 de 30</small></span>
+          <button type="button" aria-label="Mes siguiente">›</button>
+        </div>
+        <div class="scroll">
+          <div class="pad">
+
+            <div class="card">
+              <div class="row">
+                <span class="ovl">Disponible hoy</span>
+                <span class="meta">3 cuentas</span>
+              </div>
+              <p class="hero num">$ 1.284.300</p>
+              <p class="meta" style="margin-top:6px">
+                Efectivo $120.300 · Banco $940.000 · MP $224.000
+              </p>
+              <p class="meta" style="margin-top:8px;color:var(--warn)">
+                Comprometido a futuro: $660.000 en 11 cuotas
+              </p>
+            </div>
+
+            <div class="card">
+              <div class="row">
+                <span class="ovl">Cómo vengo este mes</span>
+                <span class="meta">plan $1.650.000</span>
+              </div>
+              <p class="hero num" style="font-size:26px">$ 1.118.300 <span style="font-size:14px;color:var(--ink-500);font-weight:400">gastados · 68%</span></p>
+              <div class="bar is-warn" style="margin:12px 0 8px">
+                <i style="width:68%"></i>
+                <span class="mark" style="left:57%" title="ritmo esperado al día 17"></span>
+              </div>
+              <p class="meta" style="color:var(--warn)">
+                Vas $183.000 arriba del ritmo (al día 17 correspondía 57%).
+                Proyección de cierre: <b class="num">$1.973.000</b>
+              </p>
+              <div class="tiles" style="margin-top:12px">
+                <div class="tile"><span class="k">Ingresos</span><span class="v num">$1,90 M</span></div>
+                <div class="tile"><span class="k">Gastos</span><span class="v num">$1,12 M</span></div>
+                <div class="tile"><span class="k">Ahorro</span><span class="v num pos">41%</span></div>
+              </div>
+              <div style="margin-top:14px">
+                <svg viewBox="0 0 300 78" width="100%" height="78" role="img" aria-label="Ingresos y gastos de los últimos seis meses, en millones de pesos. Septiembre: ingresos 1,90 millones, gastos 1,12 millones">
+                  <defs>
+                    <pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                      <rect width="5" height="5" fill="var(--chart-out)"></rect>
+                      <line x1="0" y1="0" x2="0" y2="5" stroke="var(--surface)" stroke-width="1.4" opacity=".55"></line>
+                    </pattern>
+                  </defs>
+                  <g font-size="8" font-family="IBM Plex Mono, monospace" fill="var(--ink-500)">
+                    <text x="0" y="8">2,4 M</text>
+                    <text x="0" y="62">0</text>
+                  </g>
+                  <line x1="34" y1="58" x2="300" y2="58" stroke="var(--border)" stroke-width="1"></line>
+                  <line x1="34" y1="12" x2="300" y2="12" stroke="var(--border)" stroke-width="1" stroke-dasharray="2 3"></line>
+                  <!-- abr may jun jul ago sep · in/out -->
+                  <g>
+                    <rect x="40" y="22" width="14" height="36" rx="3" fill="var(--chart-in)"></rect>
+                    <rect x="56" y="32" width="14" height="26" rx="3" fill="url(#hatch)"></rect>
+                    <rect x="84" y="21" width="14" height="37" rx="3" fill="var(--chart-in)"></rect>
+                    <rect x="100" y="31" width="14" height="27" rx="3" fill="url(#hatch)"></rect>
+                    <rect x="128" y="14" width="14" height="44" rx="3" fill="var(--chart-in)"></rect>
+                    <rect x="144" y="28" width="14" height="30" rx="3" fill="url(#hatch)"></rect>
+                    <rect x="172" y="19" width="14" height="39" rx="3" fill="var(--chart-in)"></rect>
+                    <rect x="188" y="29" width="14" height="29" rx="3" fill="url(#hatch)"></rect>
+                    <rect x="216" y="18" width="14" height="40" rx="3" fill="var(--chart-in)"></rect>
+                    <rect x="232" y="27" width="14" height="31" rx="3" fill="url(#hatch)"></rect>
+                    <rect x="260" y="22" width="14" height="36" rx="3" fill="var(--chart-in)"></rect>
+                    <rect x="276" y="37" width="14" height="21" rx="3" fill="url(#hatch)"></rect>
+                  </g>
+                  <g font-size="8" font-family="IBM Plex Mono, monospace" text-anchor="middle" fill="var(--ink-900)">
+                    <text x="267" y="18">1,90</text>
+                    <text x="283" y="33">1,12</text>
+                  </g>
+                  <g font-size="8" font-family="IBM Plex Mono, monospace" fill="var(--ink-500)" text-anchor="middle">
+                    <text x="55" y="72">abr</text><text x="99" y="72">may</text><text x="143" y="72">jun</text>
+                    <text x="187" y="72">jul</text><text x="231" y="72">ago</text>
+                    <text x="275" y="72" fill="var(--ink-900)">sep</text>
+                  </g>
+                </svg>
+                <div class="legend">
+                  <span><b style="background:var(--chart-in)"></b>Ingresos (izquierda)</span>
+                  <span><b style="background:var(--chart-out);background-image:repeating-linear-gradient(45deg,transparent 0 2px,rgba(255,255,255,.55) 2px 3px)"></b>Gastos (trama)</span>
+                  <span>en millones · sep en curso</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="row" style="margin-bottom:4px">
+                <h3 class="h3">Atención</h3>
+                <span class="meta">3 cosas</span>
+              </div>
+              <div class="divide">
+                <div class="alert">
+                  <span class="dot" style="background:var(--warn)"></span>
+                  <p>Faltan cargar 2 gastos fijos de agosto: <b>Seguro del auto</b> $34.000 y <b>Streaming</b> $12.000</p>
+                  <span class="act">Cargar</span>
+                </div>
+                <div class="alert">
+                  <span class="dot" style="background:var(--neg)"></span>
+                  <p><b>Ocio</b> se pasó del presupuesto por $12.000</p>
+                  <span class="act">Ver</span>
+                </div>
+                <div class="alert">
+                  <span class="dot" style="background:var(--info)"></span>
+                  <p>6 movimientos sin categoría por <b class="num">$96.300</b></p>
+                  <span class="act">Ordenar</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="row" style="margin-bottom:10px">
+                <h3 class="h3">Gastos por categoría</h3>
+                <span class="meta">9 de 9</span>
+              </div>
+              <div id="catlist">
+                <button class="catrow" type="button" data-open="viv" aria-expanded="false">
+                  <span class="top"><span class="nm">Vivienda</span><span class="money num">$320.000</span></span>
+                  <span class="bar flat"><i style="width:100%"></i></span>
+                  <span class="meta">fijo · 2 movimientos · ▲4% vs. agosto</span>
+                </button>
+                <button class="catrow" type="button" data-open="ali" aria-expanded="false">
+                  <span class="top"><span class="nm">Alimentación</span><span class="money num">$234.000</span></span>
+                  <span class="bar flat"><i style="width:73%"></i></span>
+                  <span class="meta">78% del presupuesto · 42 movimientos · ▲9%</span>
+                </button>
+                <div class="detail" id="d-ali" hidden>
+                  <span class="l"><span>Coto<small>14 sep · Supermercado · Banco</small></span><span class="num">$48.200</span></span>
+                  <span class="l"><span>Verdulería<small>12 sep · Efectivo</small></span><span class="num">$12.400</span></span>
+                  <span class="l"><span>Carnicería<small>9 sep · Efectivo</small></span><span class="num">$31.700</span></span>
+                  <span class="meta">…y 39 movimientos más</span>
+                </div>
+                <button class="catrow" type="button" data-open="tec" aria-expanded="false">
+                  <span class="top"><span class="nm">Tecnología y hogar</span><span class="money num">$180.000</span></span>
+                  <span class="bar flat"><i style="width:56%"></i></span>
+                  <span class="meta">cuotas · Notebook (5/12) y Heladera (3/12)</span>
+                </button>
+                <button class="catrow" type="button" data-open="ser" aria-expanded="false">
+                  <span class="top"><span class="nm">Servicios</span><span class="money num">$110.000</span></span>
+                  <span class="bar flat"><i style="width:34%"></i></span>
+                  <span class="meta">fijo · luz, internet, celular</span>
+                </button>
+                <button class="catrow" type="button" data-open="sin" aria-expanded="false">
+                  <span class="top"><span class="nm warn">Sin categoría</span><span class="money num warn">$96.300</span></span>
+                  <span class="bar flat"><i style="width:30%;background:var(--ink-300)"></i></span>
+                  <span class="meta">6 movimientos sin clasificar · tocá para ordenarlos</span>
+                </button>
+                <button class="catrow" type="button" data-open="oci" aria-expanded="false">
+                  <span class="top"><span class="nm">Ocio</span><span class="money num">$62.000</span></span>
+                  <span class="bar flat"><i style="width:19%"></i></span>
+                  <span class="meta neg">124% del presupuesto · se pasó $12.000</span>
+                </button>
+                <button class="catrow" type="button" data-open="tra" aria-expanded="false">
+                  <span class="top"><span class="nm">Transporte</span><span class="money num">$46.500</span></span>
+                  <span class="bar flat"><i style="width:15%"></i></span>
+                  <span class="meta">31% del presupuesto · ▼22%</span>
+                </button>
+                <button class="catrow" type="button" data-open="del" aria-expanded="false">
+                  <span class="top"><span class="nm">Delivery</span><span class="money num">$18.000</span></span>
+                  <span class="bar flat"><i style="width:6%"></i></span>
+                  <span class="meta">45% del presupuesto · 3 pedidos</span>
+                </button>
+                <button class="catrow" type="button" data-open="sal" aria-expanded="false">
+                  <span class="top"><span class="nm">Salud</span><span class="money num">$11.500</span></span>
+                  <span class="bar flat"><i style="width:4%"></i></span>
+                  <span class="meta">19% del presupuesto</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="row" style="margin-bottom:8px">
+                <h3 class="h3">Últimos movimientos</h3>
+                <span class="meta">ver los 61</span>
+              </div>
+              <div class="divide">
+                <div class="row" style="padding:8px 0">
+                  <span style="font-size:13px">Coto <small class="meta">· Alimentación · hoy</small></span>
+                  <span class="money num neg">−$48.200</span>
+                </div>
+                <div class="row" style="padding:8px 0">
+                  <span style="font-size:13px">Sueldo <small class="meta">· Sueldo · 5 sep</small></span>
+                  <span class="money num pos">+$1.900.000</span>
+                </div>
+                <div class="row" style="padding:8px 0">
+                  <span style="font-size:13px">Notebook (5/12) <small class="meta">· Tecnología · 3 sep</small></span>
+                  <span class="money num neg">−$120.000</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bottomnav">
+          <span class="on"><i aria-hidden="true">▣</i>Resumen</span>
+          <span><i aria-hidden="true">⇄</i>Movim.</span>
+          <span><i aria-hidden="true">◎</i>Plan</span>
+          <span><i aria-hidden="true">▤</i>Cuentas</span>
+          <span><i aria-hidden="true">⋯</i>Más</span>
+        </div>
+      </div>
+
+      <!-- ---------- 03 · PRESUPUESTO ---------- -->
+      <div class="screen" id="s3" role="tabpanel" aria-labelledby="t3" hidden>
+        <div class="monthbar">
+          <button type="button" aria-label="Mes anterior">‹</button>
+          <span class="m">septiembre 2026 <small>día 17 de 30</small></span>
+          <button type="button" aria-label="Mes siguiente">›</button>
+        </div>
+        <div class="scroll">
+          <div class="pad">
+
+            <div class="card">
+              <div class="row">
+                <span class="ovl">Plan de septiembre</span>
+                <button class="ghost" type="button" style="min-height:34px;padding:5px 11px;font-size:12px">Editar</button>
+              </div>
+              <p class="hero num" style="font-size:24px">$1.118.300 <span style="font-size:13px;color:var(--ink-500);font-weight:400">de $1.650.000</span></p>
+              <div class="bar is-warn" style="margin:12px 0 8px">
+                <i style="width:68%"></i>
+                <span class="mark" style="left:57%"></span>
+              </div>
+              <p class="meta">68% usado · la marca es el ritmo del día 17</p>
+              <p style="font-size:13px;margin:10px 0 0">
+                Te queda <b class="num">$531.700</b> para 13 días → <b class="num">$40.900</b> por día
+              </p>
+              <div class="divide" style="margin-top:12px;border-top:1px solid var(--border);padding-top:4px">
+                <div style="padding:9px 0">
+                  <div class="row"><span style="font-size:13px">Fijos <small class="meta">no se gestionan, se pagan</small></span><span class="money num">$470.000</span></div>
+                  <div class="bar" style="margin-top:6px"><i style="width:100%;background:var(--ink-300)"></i></div>
+                </div>
+                <div style="padding:9px 0">
+                  <div class="row"><span style="font-size:13px">Cuotas <small class="meta">ya comprometidas</small></span><span class="money num">$180.000</span></div>
+                  <div class="bar" style="margin-top:6px"><i style="width:100%;background:var(--ink-300)"></i></div>
+                </div>
+                <div style="padding:9px 0">
+                  <div class="row"><span style="font-size:13px">Variable <small class="meta">lo que podés decidir</small></span><span class="money num">$468.300 / $1.000.000</span></div>
+                  <div class="bar" style="margin-top:6px"><i style="width:47%"></i><span class="mark" style="left:57%"></span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="row" style="margin-bottom:10px">
+                <h3 class="h3">Por categoría</h3>
+                <span class="meta">ordenado por riesgo</span>
+              </div>
+              <div class="divide">
+                <div style="padding:10px 0">
+                  <div class="row"><span style="font-size:13px">Ocio</span><span class="money num neg">$62.000 / $50.000</span></div>
+                  <div class="bar is-neg" style="margin:7px 0 6px"><i style="width:100%"></i><span class="mark lim" style="left:80%"></span></div>
+                  <p class="meta neg">124% · se pasó $12.000 · promedio 3 meses $44.000</p>
+                </div>
+                <div style="padding:10px 0">
+                  <div class="row"><span style="font-size:13px">Alimentación</span><span class="money num">$234.000 / $300.000</span></div>
+                  <div class="bar is-warn" style="margin:7px 0 6px"><i style="width:78%"></i><span class="mark" style="left:57%"></span></div>
+                  <p class="meta warn">78% al día 17: vas adelantado · quedan $66.000</p>
+                </div>
+                <div style="padding:10px 0">
+                  <div class="row"><span style="font-size:13px">Delivery</span><span class="money num">$18.000 / $40.000</span></div>
+                  <div class="bar" style="margin:7px 0 6px"><i style="width:45%"></i><span class="mark" style="left:57%"></span></div>
+                  <p class="meta">45% · quedan $22.000</p>
+                </div>
+                <div style="padding:10px 0">
+                  <div class="row"><span style="font-size:13px">Transporte</span><span class="money num">$46.500 / $150.000</span></div>
+                  <div class="bar" style="margin:7px 0 6px"><i style="width:31%"></i><span class="mark" style="left:57%"></span></div>
+                  <p class="meta">31% · quedan $103.500</p>
+                </div>
+                <div style="padding:10px 0">
+                  <div class="row"><span style="font-size:13px">Salud</span><span class="money num">$11.500 / $60.000</span></div>
+                  <div class="bar" style="margin:7px 0 6px"><i style="width:19%"></i><span class="mark" style="left:57%"></span></div>
+                  <p class="meta">19% · quedan $48.500</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="h3">Sin presupuesto</h3>
+              <p class="meta" style="margin:4px 0 10px">$96.300 quedaron fuera del plan</p>
+              <div class="chips">
+                <button class="chip sm" type="button">Sin categoría <span class="num" style="color:var(--ink-500)">$96.300</span></button>
+                <button class="chip sm" type="button">Regalos <span class="num" style="color:var(--ink-500)">$0</span></button>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="h3">Cumplimiento</h3>
+              <p class="meta" style="margin:4px 0 12px">Presupuesto vigente de cada mes contra el gasto de las categorías presupuestadas</p>
+              <svg viewBox="0 0 300 92" width="100%" height="92" role="img" aria-label="Porcentaje del presupuesto usado en los últimos seis meses: abril 92, mayo 104, junio 88, julio 97, agosto 112, septiembre 68 en curso">
+                <line x1="0" y1="30" x2="300" y2="30" stroke="var(--border-strong)" stroke-width="1" stroke-dasharray="3 3"></line>
+                <text x="300" y="26" font-size="8" text-anchor="end" font-family="IBM Plex Mono, monospace" fill="var(--ink-500)">100%</text>
+                <g>
+                  <rect x="12" y="34" width="30" height="36" rx="3" fill="var(--pos)"></rect>
+                  <rect x="60" y="26" width="30" height="44" rx="3" fill="var(--neg)"></rect>
+                  <rect x="108" y="38" width="30" height="32" rx="3" fill="var(--pos)"></rect>
+                  <rect x="156" y="31" width="30" height="39" rx="3" fill="var(--pos)"></rect>
+                  <rect x="204" y="21" width="30" height="49" rx="3" fill="var(--neg)"></rect>
+                  <rect x="252" y="46" width="30" height="24" rx="3" fill="var(--ink-300)"></rect>
+                </g>
+                <g font-size="8" font-family="IBM Plex Mono, monospace" fill="var(--ink-500)" text-anchor="middle">
+                  <text x="27" y="82">92</text><text x="75" y="82">104</text><text x="123" y="82">88</text>
+                  <text x="171" y="82">97</text><text x="219" y="82">112</text><text x="267" y="82">68</text>
+                  <text x="27" y="91">abr</text><text x="75" y="91">may</text><text x="123" y="91">jun</text>
+                  <text x="171" y="91">jul</text><text x="219" y="91">ago</text><text x="267" y="91">sep</text>
+                </g>
+              </svg>
+              <p style="font-size:13px;margin:10px 0 0">Cerraste dentro del plan <b>3</b> de los últimos 5 meses cerrados.</p>
+            </div>
+          </div>
+        </div>
+        <div class="bottomnav">
+          <span><i aria-hidden="true">▣</i>Resumen</span>
+          <span><i aria-hidden="true">⇄</i>Movim.</span>
+          <span class="on"><i aria-hidden="true">◎</i>Plan</span>
+          <span><i aria-hidden="true">▤</i>Cuentas</span>
+          <span><i aria-hidden="true">⋯</i>Más</span>
+        </div>
+      </div>
+
+      <!-- ---------- 04 · ARMAR EL PLAN ---------- -->
+      <div class="screen" id="s4" role="tabpanel" aria-labelledby="t4" hidden>
+        <div class="appbar">
+          <h2>← Armar el plan de octubre</h2>
+        </div>
+        <div class="scroll">
+          <div class="sticky-assign">
+            <div class="row">
+              <span class="ovl">Sin asignar</span>
+              <span class="meta" id="assignhint">de $1.800.000 disponibles</span>
+            </div>
+            <p class="hero num" id="assign" style="font-size:24px">$150.000</p>
+            <div class="bar" style="margin-top:8px"><i id="assignbar" style="width:92%"></i></div>
+          </div>
+          <div class="pad">
+            <div class="card">
+              <div class="row" style="padding-bottom:10px">
+                <label for="ingreso" style="font-size:13px">Ingreso esperado
+                  <small class="meta" style="display:block">promedio 3 meses: $2.040.000</small>
+                </label>
+                <input id="ingreso" class="inputmoney num" type="number" step="10000" value="2100000">
+              </div>
+              <div class="row" style="border-top:1px solid var(--border);padding:10px 0">
+                <label for="ahorro" style="font-size:13px">Ahorro objetivo
+                  <small class="meta" style="display:block">14% del ingreso</small>
+                </label>
+                <input id="ahorro" class="inputmoney num" type="number" step="10000" value="300000">
+              </div>
+              <div class="row" style="border-top:1px solid var(--border);padding-top:10px">
+                <span style="font-size:13px">Fijos + cuotas
+                  <small class="meta" style="display:block">calculado de lo que ya cargaste</small>
+                </span>
+                <span class="money num">$650.000</span>
+              </div>
+            </div>
+
+            <div class="chips">
+              <button class="chip sm" type="button" id="copiar">Copiar de septiembre</button>
+              <button class="chip sm" type="button" id="sugerir">Sugerir por promedio</button>
+            </div>
+
+            <div class="card">
+              <div class="row" style="margin-bottom:6px">
+                <h3 class="h3">Topes por categoría</h3>
+                <span class="meta" id="sumtopes">suma $1.000.000</span>
+              </div>
+              <div class="divide" id="topes">
+                <div class="row" style="padding:9px 0">
+                  <label for="b1" style="font-size:13px">Alimentación<small class="meta" style="display:block">prom. $287.000</small></label>
+                  <input id="b1" class="inputmoney num tope" type="number" step="10000" value="300000" data-prom="287000" data-sep="300000">
+                </div>
+                <div class="row" style="padding:9px 0">
+                  <label for="b2" style="font-size:13px">Transporte<small class="meta" style="display:block">prom. $141.000</small></label>
+                  <input id="b2" class="inputmoney num tope" type="number" step="10000" value="150000" data-prom="141000" data-sep="150000">
+                </div>
+                <div class="row" style="padding:9px 0">
+                  <label for="b3" style="font-size:13px">Ocio<small class="meta" style="display:block">prom. $44.000 · el mes pasado se pasó</small></label>
+                  <input id="b3" class="inputmoney num tope" type="number" step="10000" value="50000" data-prom="44000" data-sep="50000">
+                </div>
+                <div class="row" style="padding:9px 0">
+                  <label for="b4" style="font-size:13px">Delivery<small class="meta" style="display:block">prom. $68.000</small></label>
+                  <input id="b4" class="inputmoney num tope" type="number" step="10000" value="40000" data-prom="68000" data-sep="40000">
+                </div>
+                <div class="row" style="padding:9px 0">
+                  <label for="b5" style="font-size:13px">Salud<small class="meta" style="display:block">prom. $52.000</small></label>
+                  <input id="b5" class="inputmoney num tope" type="number" step="10000" value="60000" data-prom="52000" data-sep="60000">
+                </div>
+                <div class="row" style="padding:9px 0">
+                  <label for="b6" style="font-size:13px">Ropa<small class="meta" style="display:block">prom. $73.000</small></label>
+                  <input id="b6" class="inputmoney num tope" type="number" step="10000" value="80000" data-prom="73000" data-sep="80000">
+                </div>
+                <div class="row" style="padding:9px 0">
+                  <label for="b7" style="font-size:13px">Educación<small class="meta" style="display:block">prom. $96.000</small></label>
+                  <input id="b7" class="inputmoney num tope" type="number" step="10000" value="100000" data-prom="96000" data-sep="100000">
+                </div>
+                <div class="row" style="padding:9px 0">
+                  <label for="b8" style="font-size:13px">Otros gastos<small class="meta" style="display:block">prom. $112.000</small></label>
+                  <input id="b8" class="inputmoney num tope" type="number" step="10000" value="120000" data-prom="112000" data-sep="120000">
+                </div>
+                <div class="row" style="padding:9px 0">
+                  <label for="b9" style="font-size:13px">Regalos<small class="meta" style="display:block">prom. $38.000</small></label>
+                  <input id="b9" class="inputmoney num tope" type="number" step="10000" value="100000" data-prom="38000" data-sep="100000">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sheetfoot">
+          <div class="row" style="padding-bottom:2px">
+            <label for="desde" class="fieldlab" style="margin:0">Aplicar</label>
+            <select id="desde" style="font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--ink-900)">
+              <option>desde octubre en adelante</option>
+              <option>solo en octubre</option>
+            </select>
+          </div>
+          <button class="primary" type="button">Guardar el plan de octubre</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= NOTAS ================= -->
+    <div class="notes">
+      <div class="notecard" id="n1">
+        <h3>Cargar un movimiento</h3>
+        <p class="sub">Hoy: 15-20 toques, dos teclados y ninguna confirmación de que se guardó. Objetivo: 3 toques, 8 segundos.</p>
+        <ol class="ann">
+          <li><b>Teclado propio.</b> El del sistema nunca aparece: no hay zoom de iOS, no salta el layout y el botón de guardar queda siempre a la vista. El monto se formatea mientras tipeás.<span class="fix">A7 · X3</span></li>
+          <li><b>Categoría en chips, ordenadas por uso.</b> Un toque en vez de tres, con el ícono y el color que ya están en la base y hoy no se muestran en ningún lado.<span class="fix">A3 · V5</span></li>
+          <li><b>La cuenta viene elegida</b> (la última que usaste). Cero toques en el caso normal; hoy es obligatoria y arranca en "Elegir…".<span class="fix">A3</span></li>
+          <li><b>Todo lo demás, en un solo desplegable:</b> descripción con sugerencias del historial, medio de pago (hoy la tabla existe y nunca se carga), cuotas y gasto fijo.<span class="fix">F1</span></li>
+          <li><b>El botón dice qué va a pasar</b> ("Guardar gasto · $12.500") y es verde, no rojo: el rojo es de eliminar.<span class="fix">V2</span></li>
+          <li><b>"Guardar y cargar otro"</b> mantiene categoría, cuenta y fecha: es el modo para cargar los tickets del sábado.<span class="fix">F4</span></li>
+          <li><b>Aviso de mes.</b> Si estás viendo agosto y el movimiento se va a septiembre, lo dice antes de guardar. Probalo: activá "Otra fecha".<span class="fix">A2</span></li>
+        </ol>
+      </div>
+
+      <div class="notecard" id="n2" hidden>
+        <h3>Resumen del mes</h3>
+        <p class="sub">Mismo contenido que hoy, otro orden y dos agregados. En el celular, hoy el saldo aparece después de toda la lista de categorías.</p>
+        <ol class="ann">
+          <li><b>Disponible primero.</b> Es la pregunta más frecuente y hoy está a 1.100 px de scroll. Abajo, lo comprometido a futuro en cuotas, que hoy ya está descontado del saldo sin decirlo.<span class="fix">D5</span></li>
+          <li><b>"Cómo vengo" con ritmo.</b> La marca vertical es el día del mes: contesta "¿voy adelantado?" de un vistazo. La proyección ya se calcula en el código, pero está escondida en letra de 11 px.</li>
+          <li><b>Tarjeta "Atención".</b> Junta lo accionable que hoy está repartido en tres tarjetas distintas (o en ninguna, como los movimientos sin categoría).<span class="fix">A4</span></li>
+          <li><b>Barras de un solo tono.</b> Hoy la primera barra se pinta oscura y el resto gris: eso es color por ranking, y el ranking ya lo dice el largo. El color pasa a significar una sola cosa.</li>
+          <li><b>Fila "Sin categoría".</b> Hoy esos gastos entran en el total pero no en el desglose: la suma no cierra y nada lo explica.<span class="fix">A4</span></li>
+          <li><b>Verde y rojo, pero los que se ven.</b> El par actual de la app no lo distingue quien tiene protanopía (ΔE 5,7 medido). Estos pasos sí validan (#15803D / #DC2626, ΔE 8,6) y además los gastos van con trama y el mes en curso con etiqueta: el gráfico se lee igual en blanco y negro.</li>
+          <li><b>Barra de mes de ancho completo</b>, con botones de 44 px y swipe. Hoy son dos flechas de 32 px arriba a la derecha, y es el control que define todo lo que ves.<span class="fix">A10</span></li>
+        </ol>
+      </div>
+
+      <div class="notecard" id="n3" hidden>
+        <h3>Presupuesto</h3>
+        <p class="sub">El módulo que falta. Hoy la pantalla existe, pero el modelo no tiene noción de mes y dos de los tres números están mal calculados.</p>
+        <ol class="ann">
+          <li><b>El héroe es la plata, no el porcentaje.</b> "$1.118.300 de $1.650.000" con el 68% como apoyo; hoy el número grande es el porcentaje solo.</li>
+          <li><b>Fijos y cuotas van aparte.</b> No se gestionan: se pagan. Mezclarlos con lo variable es lo que hace que "te queda X" sea falso. Acá "te queda $531.700" es de verdad lo que podés decidir.<span class="fix">D5</span></li>
+          <li><b>Ritmo por categoría.</b> Alimentación en 78% al día 17 (correspondía 57%) se marca en ámbar aunque no se haya pasado: eso es lo accionable.</li>
+          <li><b>Excedido con número y etiqueta</b>, no solo en rojo: se lee igual en escala de grises.</li>
+          <li><b>Cumplimiento arreglado.</b> Hoy compara todo el gasto del mes contra el presupuesto de hoy: dice "te pasaste" casi siempre. Acá cada mes se compara con su propio presupuesto y solo con las categorías presupuestadas.<span class="fix">D3 · D4</span></li>
+          <li><b>Una consulta por pantalla.</b> Hoy son seis consultas encadenadas de hasta 5.000 filas para dibujar seis barritas.<span class="fix">P4</span></li>
+        </ol>
+      </div>
+
+      <div class="notecard" id="n4" hidden>
+        <h3>Armar el plan</h3>
+        <p class="sub">Pantalla completa en vez de modal, y la cuenta cierra: ingreso − ahorro − comprometido = lo que hay para repartir. Probá cambiar los montos.</p>
+        <ol class="ann">
+          <li><b>"Sin asignar" siempre a la vista</b> (queda pegado arriba al scrollear) y se pone en rojo si te pasás del disponible. No bloquea: es tu plata, pero te avisa.</li>
+          <li><b>Dos atajos contra la hoja en blanco:</b> copiar el plan del mes anterior, o proponer los topes según el promedio de 3 meses. Los datos ya están en la base.</li>
+          <li><b>Cada categoría muestra su promedio</b> al lado del input: presupuestar sin saber cuánto gastás siempre termina en un número inventado.</li>
+          <li><b>"Aplicar desde octubre en adelante" o "solo en octubre".</b> Esto es lo que hace que el presupuesto por mes se entienda sin explicarlo: hoy editar un monto reescribe también el pasado.<span class="fix">D4</span></li>
+          <li><b>Se guarda en una sola operación.</b> Hoy el editor hace una consulta por categoría, en serie: si falla la quinta, quedan cinco guardadas y el resto no.</li>
+        </ol>
+      </div>
+
+      <div class="notecard">
+        <h3>Los tokens que usa esta maqueta</h3>
+        <p class="sub">Los mismos que propongo para la app, con el contraste medido sobre blanco. Probá el botón de arriba: el modo oscuro sale de los mismos tokens.</p>
+        <div class="swatches">
+          <span class="sw"><i style="background:#F5F4F0"></i><code>--bg</code>fondo</span>
+          <span class="sw"><i style="background:#047857"></i><code>--brand</code>5,5:1</span>
+          <span class="sw"><i style="background:#0F6B4F"></i><code>--pos</code>6,5:1</span>
+          <span class="sw"><i style="background:#B0402B"></i><code>--neg</code>5,8:1</span>
+          <span class="sw"><i style="background:#8A5A06"></i><code>--warn</code>5,9:1</span>
+          <span class="sw"><i style="background:#15803D"></i><code>--chart-in</code>gráficos</span>
+          <span class="sw"><i style="background:#DC2626"></i><code>--chart-out</code>ΔE 8,6</span>
+          <span class="sw"><i style="background:#B0402B"></i><code>--data-1</code>barras</span>
+        </div>
+        <table class="ratio" style="margin-top:16px">
+          <tr><th>Texto</th><th>Hoy</th><th>Propuesto</th></tr>
+          <tr><td>Cuerpo</td><td class="num">gray-700 · 10:1</td><td class="num">--ink-700 · 10:1</td></tr>
+          <tr><td>Metadata 12 px</td><td class="num neg">gray-400 · 2,5:1</td><td class="num pos">--ink-500 · 5,3:1</td></tr>
+          <tr><td>Vacíos</td><td class="num neg">gray-300 · 1,9:1</td><td class="num pos">--ink-500 · 5,3:1</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">
+    Maqueta de trabajo, no build de la app: los datos son de ejemplo y las pantallas están en
+    HTML suelto. El detalle escrito está en <code>docs/ux/</code> del repo —
+    auditoría, sistema de diseño, flujo de carga, vista global, presupuesto y las preguntas
+    abiertas.
+  </p>
+</div>
+
+<script>
+(function () {
+  var fmt = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });
+  var money = function (n) { return '$' + fmt.format(n); };
+
+  /* ---------- tema ---------- */
+  var root = document.documentElement, tbtn = document.getElementById('theme');
+  function dark() {
+    var t = root.getAttribute('data-theme');
+    if (t) return t === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  function syncTheme() { tbtn.textContent = dark() ? 'Ver en claro' : 'Ver en oscuro'; }
+  tbtn.addEventListener('click', function () {
+    root.setAttribute('data-theme', dark() ? 'light' : 'dark');
+    syncTheme();
+  });
+  syncTheme();
+
+  /* ---------- pestañas ---------- */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  tabs.forEach(function (tab, i) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (t, j) {
+        var sel = i === j;
+        t.setAttribute('aria-selected', sel ? 'true' : 'false');
+        document.getElementById(t.getAttribute('aria-controls')).hidden = !sel;
+        var note = document.getElementById('n' + (j + 1));
+        if (note) note.hidden = !sel;
+      });
+    });
+  });
+
+  /* ---------- grupos de chips ---------- */
+  function group(id, cb) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('.chip, button');
+      if (!b || !el.contains(b)) return;
+      Array.prototype.forEach.call(el.querySelectorAll('[aria-pressed]'), function (x) {
+        x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+      });
+      if (cb) cb(b);
+    });
+  }
+
+  /* ---------- sheet de carga ---------- */
+  var digits = '', tipo = 'expense';
+  var amt = document.getElementById('amt'), sub = document.getElementById('amtsub');
+  var save = document.getElementById('save');
+  var cuotas = document.getElementById('cuotas'), ncuotas = document.getElementById('ncuotas');
+  var cuotasbox = document.getElementById('cuotasbox');
+  var monthwarn = document.getElementById('monthwarn');
+  var sel = { cat: 'Alimentación', acc: 'Efectivo', date: 'hoy' };
+
+  function labelTipo() {
+    return tipo === 'expense' ? 'gasto' : tipo === 'income' ? 'ingreso' : 'transferencia';
+  }
+  function render() {
+    var n = digits ? parseInt(digits, 10) : 0;
+    amt.textContent = '$ ' + fmt.format(n);
+    amt.classList.toggle('zero', n === 0);
+    var bits = [sel.cat || 'Sin categoría', sel.acc, sel.date === 'hoy' ? 'hoy' : sel.date === 'ayer' ? 'ayer' : '31 de agosto'];
+    if (cuotas.checked && n > 0) {
+      var k = Math.max(2, parseInt(ncuotas.value, 10) || 2);
+      bits.push(k + ' cuotas × ' + money(n) + ' = ' + money(n * k));
+    }
+    sub.textContent = bits.join(' · ');
+    save.disabled = n === 0;
+    save.textContent = n === 0
+      ? 'Falta el monto'
+      : 'Guardar ' + labelTipo() + ' · ' + money(cuotas.checked ? n * Math.max(2, parseInt(ncuotas.value, 10) || 2) : n);
+    monthwarn.hidden = sel.date !== 'otra';
+  }
+
+  document.getElementById('keypad').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var k = b.getAttribute('data-k');
+    if (k === 'del') digits = digits.slice(0, -1);
+    else if (digits.length + k.length <= 9) digits = (digits + k).replace(/^0+(?=\d)/, '');
+    render();
+  });
+  document.querySelector('.seg').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    Array.prototype.forEach.call(this.querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+    });
+    tipo = b.getAttribute('data-type');
+    render();
+  });
+  group('cats', function (b) { sel.cat = b.getAttribute('data-cat'); render(); });
+  group('accs', function (b) { sel.acc = b.getAttribute('data-acc'); render(); });
+  group('dates', function (b) { sel.date = b.getAttribute('data-date'); render(); });
+  group('pms');
+  cuotas.addEventListener('change', function () { cuotasbox.hidden = !cuotas.checked; render(); });
+  ncuotas.addEventListener('input', render);
+  render();
+
+  /* ---------- detalle de categoría ---------- */
+  document.getElementById('catlist').addEventListener('click', function (e) {
+    var b = e.target.closest('.catrow'); if (!b) return;
+    var d = document.getElementById('d-' + b.getAttribute('data-open'));
+    if (!d) return;
+    var open = !d.hidden;
+    d.hidden = open;
+    b.setAttribute('aria-expanded', open ? 'false' : 'true');
+  });
+
+  /* ---------- editor del plan ---------- */
+  var ingreso = document.getElementById('ingreso'), ahorro = document.getElementById('ahorro');
+  var topes = Array.prototype.slice.call(document.querySelectorAll('.tope'));
+  var assign = document.getElementById('assign'), assignbar = document.getElementById('assignbar');
+  var assignhint = document.getElementById('assignhint'), sumtopes = document.getElementById('sumtopes');
+  var COMPROMETIDO = 650000;
+
+  function plan() {
+    var disp = (+ingreso.value || 0) - (+ahorro.value || 0);
+    var suma = topes.reduce(function (s, i) { return s + (+i.value || 0); }, 0);
+    var libre = disp - COMPROMETIDO - suma;
+    assign.textContent = (libre < 0 ? '−' : '') + money(Math.abs(libre));
+    assign.className = 'hero num ' + (libre < 0 ? 'neg' : libre === 0 ? 'pos' : '');
+    assign.style.fontSize = '24px';
+    assignhint.textContent = libre < 0
+      ? 'te pasaste del disponible'
+      : 'de ' + money(disp) + ' disponibles';
+    var used = disp > 0 ? Math.min(100, ((COMPROMETIDO + suma) / disp) * 100) : 100;
+    assignbar.style.width = used + '%';
+    assignbar.style.background = libre < 0 ? 'var(--neg)' : 'var(--pos)';
+    sumtopes.textContent = 'suma ' + money(suma);
+  }
+  [ingreso, ahorro].concat(topes).forEach(function (i) { i.addEventListener('input', plan); });
+  document.getElementById('copiar').addEventListener('click', function () {
+    topes.forEach(function (i) { i.value = i.getAttribute('data-sep'); }); plan();
+  });
+  document.getElementById('sugerir').addEventListener('click', function () {
+    topes.forEach(function (i) { i.value = i.getAttribute('data-prom'); }); plan();
+  });
+  plan();
+})();
+</script>

@@ -1,0 +1,128 @@
+# Auditoría de diseño + plan — Finanzas Personales
+
+Trabajo hecho el 2026-09-17 sobre el commit `3d6bd60`, leyendo las 5.311 líneas de `src`, el
+SQL y la configuración. No pude levantar la app (no hay `.env.local`: las claves viven en
+Vercel), así que todo lo que sigue sale del código; los tres puntos que dependen de lo que
+realmente corre en Supabase están marcados y tienen su chequeo en `06-PREGUNTAS.md` §25.
+
+## Los documentos
+
+| Archivo | Qué hay adentro |
+|---|---|
+| [`01-AUDITORIA.md`](01-AUDITORIA.md) | 47 hallazgos con severidad, `archivo:línea` y arreglo |
+| [`02-DESIGN-SYSTEM.md`](02-DESIGN-SYSTEM.md) | Tokens de color (con contraste medido), tipografía, espaciado, foco, primitivas a extraer |
+| [`03-FLUJO-MOVIMIENTO.md`](03-FLUJO-MOVIMIENTO.md) | El flujo de carga, de 15-20 toques a 3 |
+| [`04-GLOBAL-DASHBOARD.md`](04-GLOBAL-DASHBOARD.md) | Jerarquía de la vista global, barra de mes, gráficos (paleta validada) |
+| [`05-PRESUPUESTO.md`](05-PRESUPUESTO.md) | El módulo que falta: modelo, SQL, pantallas, copy, fases |
+| [`06-PREGUNTAS.md`](06-PREGUNTAS.md) | 26 preguntas con recomendación por defecto |
+
+Maqueta interactiva de las pantallas propuestas: ver el enlace en la conversación (Artifact
+privado).
+
+---
+
+## Lo que encontré, en una carilla
+
+**La app está mucho mejor de lo que suele estar un proyecto personal a esta altura.** Los
+comentarios del código muestran que ya se pelearon los problemas difíciles y reales: el rebote
+de sesión en el celular, el service worker fantasma, el scroll horizontal en 360 px, los saldos
+al editar, el manejo de fechas de cuotas a fin de mes. Eso no se nota en una captura pero es la
+parte que hace que una PWA sea usable.
+
+Lo que falta es de otra naturaleza: **el ciclo de escritura está roto y el sistema visual no
+existe como sistema.**
+
+### Los seis P0
+
+1. **Cargás un movimiento y la pantalla no cambia** (A1). El modal global solo refresca los
+   saldos; el dashboard y la lista no se enteran. Es el bug más caro: te hace dudar de si el
+   gasto se guardó.
+2. **El mes que mirás y la fecha del movimiento no se hablan** (A2): cargás mirando agosto y se
+   guarda en septiembre, sin aviso y sin aparecer en ningún lado.
+3. **Las cuotas se guardan divididas** (D1): el formulario dice "valor de cada cuota", el SQL
+   divide por la cantidad. 12 × $10.000 queda como 12 × $833. Crear y editar dan resultados
+   distintos. *(Verificar contra producción.)*
+4. **Las firmas de las funciones SQL del repo no coinciden con las llamadas de la app** (D2):
+   o el repo está viejo, o el dashboard falla en silencio. *(Verificar.)*
+5. **El presupuesto no tiene mes** (D4): hay un monto por categoría para toda la eternidad;
+   editarlo hoy reescribe el pasado.
+6. **El gráfico de cumplimiento compara todo el gasto contra el presupuesto de hoy** (D3): dice
+   "te pasaste" casi siempre.
+
+### Los tres problemas transversales
+
+- **Accesibilidad:** cero indicadores de foco en toda la app (39 `outline-none`, 0
+  `focus-visible`), metadata en gris de 2,5:1 de contraste (el mínimo es 4,5:1), y controles de
+  22-24 px pegados entre sí donde la guía pide 44 px con 8 px de aire. Además, **editar cuentas
+  y categorías no funciona en el celular**: los botones solo aparecen con hover (X6).
+- **Sistema visual:** tres paletas conviviendo (Tailwind, hex a mano en el dashboard, colores de
+  la base), 26 `fontFamily` inline para los números, dos radios de tarjeta, y el botón de
+  guardar un gasto en rojo, que es el color de "eliminar" en el resto de la app.
+- **Estados:** `loading` se calcula en dos pantallas y **no se usa** en ninguna; no hay estado
+  de error en ningún lugar. Al cambiar de mes seguís viendo los números del mes anterior como si
+  fueran los nuevos.
+
+### Lo que la estructura ya pide y no está
+
+Medio de pago (tabla seedeada, nunca se carga), ciclo de la tarjeta de crédito
+(`closing_day`/`due_day` sin usar), generación de los gastos fijos del mes (hoy solo se
+detectan por texto), deshacer, íconos del PWA (el manifest apunta a dos PNG que no existen) y
+el atajo "Nuevo gasto" de la pantalla de inicio, que no hace nada.
+
+---
+
+## Plan de trabajo sugerido
+
+### Etapa 1 — Que no mienta (2-3 sesiones)
+- A1: un solo origen de verdad para los movimientos del mes + actualización optimista.
+- P1/P2: skeletons y estado de error en las cuatro pantallas de lectura.
+- A2: aviso de mes al guardar.
+- D1/D2: confirmar contra producción y alinear (copy, API y SQL).
+- P3/P4: usar las RPC que ya existen y matar las 6 consultas en serie de presupuestos.
+
+### Etapa 2 — Una sola pasada visual y de accesibilidad
+- Tokens en `globals.css` + `tailwind.config` (`02`).
+- `focus-visible` global, escala de grises con contraste, áreas táctiles de 44 px.
+- X6: acciones visibles en táctil en cuentas y categorías.
+- Primitivas `Card`, `Money`, `Chip`, `ProgressBar`, `Skeleton`, `EmptyState`, `ErrorState`.
+- Borrar el `@import` de Tabler y mapear los íconos de la base a lucide.
+
+### Etapa 3 — El flujo de carga (`03`)
+`Sheet` con contrato de diálogo → teclado numérico propio → chips de categoría y cuenta con
+memoria → "Más opciones" con medio de pago, cuotas, fijo y notas → guardar y cargar otro +
+deshacer.
+
+### Etapa 4 — Presupuesto (`05`)
+Fase 0 (modelo por mes + las dos RPC) → Fase 1 (vista del mes con ritmo, editor con "sin
+asignar") → Fase 2 (asistente, fijos y cuotas comprometidos, historial correcto).
+
+### Etapa 5 — Vista global (`04`)
+Reordenar el dashboard (disponible primero, tarjeta "Atención"), barra de mes con swipe, un solo
+modelo de período, gráficos con la paleta validada.
+
+### Etapa 6 — Lo demás
+Dark mode, íconos y atajos del PWA, resumen de tarjeta, generación de fijos, ajuste por
+inflación, `ignoreBuildErrors: false` y limpieza de código muerto.
+
+---
+
+## Decisiones tomadas (2026-09-17)
+
+Las 26 preguntas están respondidas: la tabla completa abre `06-PREGUNTAS.md`. Las que cambian
+el rumbo:
+
+- Presupuesto = **plan del mes** (ingreso − ahorro = disponible; fijos y cuotas aparte; número
+  de "sin asignar"), independiente por mes y sin rollover por ahora.
+- Cuotas: el monto que se carga es el de **cada cuota** → se arregla la función SQL.
+- Saldo = **solo lo confirmado**, con "comprometido a futuro" como línea aparte.
+- Cuentas en USD: **se muestran aparte, nunca sumadas** al total en pesos.
+- Carga: **teclado propio**, categoría en chips, descripción opcional, medio de pago se carga,
+  borrar con **deshacer** en vez de `confirm()`, y botón para **cargar los fijos del mes**.
+- **Modo oscuro sí** (sigue al sistema), densidad compacta en listas.
+- Gráficos: **verde y rojo** con los pasos que validan (`#15803D` / `#DC2626`) más etiquetas
+  directas y trama en gastos — ver la nota en `04-GLOBAL-DASHBOARD.md` §3.2.
+- Sin ajuste por inflación por ahora. Tarjeta de crédito, en fase 2.
+- Orden de trabajo: **Etapa 1 primero**.
+
+Pendientes de tu lado: la URL de producción, el `.env.local` si querés que levante la app acá,
+y la verificación SQL de 2 minutos (`06-PREGUNTAS.md` §25) que confirma D1 y D2.
