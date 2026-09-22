@@ -31,6 +31,11 @@ Vercel desde `main` en GitHub (`SilvioRamirez22/Finanzas`).
 - Seguimiento: `src/app/seguimiento` (carga), `src/components/seguimiento` (gráficos SVG a mano,
   sin librería), `src/lib/seguimiento.ts` (cálculos puros). Colores de gráficos: `--chart-*`,
   `--heat-*`, `--data-*` en `globals.css`.
+- Presupuesto: `src/lib/budget.ts` (cálculos puros: tope vigente por mes, escribir "desde" o
+  "solo" un mes sin tocar el pasado, resumen del mes). Nunca escribir `budgets` por fuera de
+  `planBudgetWrites` + `applyBudgetWrites`.
+- SQL: los cambios de base van numerados en `sql/migrations/` y se corren a mano en el SQL Editor
+  de Supabase. No correr `sql/INSTALAR_TODO.sql` sobre producción (ver D2).
 - Modo oscuro: sigue al sistema con `prefers-color-scheme`; se prueba forzando el esquema oscuro
   en el navegador.
 

@@ -5,7 +5,8 @@ import { useAppStore } from '@/store/useAppStore'
 import { useMonthData } from '@/lib/useMonthData'
 import { CardSkeleton, ErrorState } from '@/components/ui/States'
 import { MESES, rangeFor, buildSeries } from '@/lib/seguimiento'
-import SeguimientoContent from '@/components/seguimiento/SeguimientoContent'
+import SeguimientoContent, { type PlanPoint } from '@/components/seguimiento/SeguimientoContent'
+import { summarizeMonth } from '@/lib/budget'
 
 // Seguimiento: cómo evolucionan ingresos, gastos y ahorro (docs/ux/07-SEGUIMIENTO.md).
 // Se traen 24 meses una sola vez por mes elegido; 6 o 12 se calculan en memoria.
@@ -18,7 +19,7 @@ async function loadRows(year: number, month: number) {
 }
 
 export default function SeguimientoPage() {
-  const { categories, selectedMonth } = useAppStore()
+  const { categories, budgets, selectedMonth } = useAppStore()
   const { data, error, reload } = useMonthData(loadRows)
   const [range, setRange] = useState<6 | 12>(6)
   const [selKey, setSelKey] = useState<string | null>(null)
@@ -28,6 +29,16 @@ export default function SeguimientoPage() {
     () => data ? buildSeries(data, selectedMonth.year, selectedMonth.month, range) : null,
     [data, selectedMonth.year, selectedMonth.month, range]
   )
+
+  // Gasto contra el plan de cada mes del período (docs/ux/05-PRESUPUESTO.md).
+  const planPoints = useMemo<PlanPoint[]>(() => {
+    if (!data || !series) return []
+    const rootIds = categories.filter(c => !c.parent_id && c.type !== 'income').map(c => c.id)
+    return series.months.map(p => {
+      const s = summarizeMonth(data, budgets, p.year, p.month, rootIds)
+      return { key: p.key, month: p.month, planned: s.plannedTotal, spent: s.spentTotal, hasBudget: s.hasBudget, inProgress: p.inProgress, projection: p.projection }
+    })
+  }, [data, series, budgets, categories])
 
   const catName = (id: string) => id === 'none' ? 'Sin categoría' : categories.find(c => c.id === id)?.name || 'Otra'
 
@@ -65,7 +76,7 @@ export default function SeguimientoPage() {
         </div>
       ) : (
         <SeguimientoContent series={series} range={range} selKey={selKey} setSelKey={setSelKey}
-          catId={catId} setCatId={setCatId} catName={catName} />
+          catId={catId} setCatId={setCatId} catName={catName} planPoints={planPoints} />
       )}
     </div>
   )

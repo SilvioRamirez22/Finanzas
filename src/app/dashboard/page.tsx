@@ -8,6 +8,7 @@ import { formatCurrency } from '@/lib/format'
 import RecurringBadge from '@/components/RecurringBadge'
 import { CardSkeleton, ErrorState } from '@/components/ui/States'
 import { useMonthData } from '@/lib/useMonthData'
+import { summarizeMonth, monthProgress } from '@/lib/budget'
 import type { TransactionFull, CategoryExpense } from '@/types'
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -56,7 +57,7 @@ function sumMonth(txs: TransactionFull[]) {
 }
 
 export default function DashboardPage() {
-  const { accounts, budgets, selectedMonth } = useAppStore()
+  const { accounts, budgets, categories, selectedMonth } = useAppStore()
   const { year, month } = selectedMonth
 
   const { data, error, reload } = useMonthData(loadMonth)
@@ -113,12 +114,14 @@ export default function DashboardPage() {
     }
   }
 
-  // Presupuestos con gasto actual
-  const budgetRows = budgets.map(b => {
-    const spent = cats.find(c => c.category_id === b.category_id)?.total || 0
-    const pct = b.amount > 0 ? (spent / b.amount) * 100 : 0
-    return { ...b, spent, pct }
-  }).sort((a, b) => b.pct - a.pct).slice(0, 3)
+  // Plan del mes: el mismo cálculo que la pantalla de Presupuesto, con los
+  // movimientos que ya están cargados (este mes y el anterior).
+  const rootIds = categories.filter(c => !c.parent_id && c.type !== 'income').map(c => c.id)
+  const plan = summarizeMonth([...allTx, ...prevAllTx], budgets, year, month, rootIds)
+  const planProgress = monthProgress(year, month)
+  const planPct = plan.plannedTotal > 0 ? plan.spentTotal / plan.plannedTotal : 0
+  const overCats = plan.lines.filter(l => l.budget > 0 && l.variable > l.budget)
+  const planLeft = plan.budgetedVariable - plan.variableOnBudgeted
 
   // Gastos fijos: los de este mes, y los del mes anterior que todavía no
   // aparecen (se comparan por descripción, sin mayúsculas ni espacios de más).
@@ -430,33 +433,34 @@ export default function DashboardPage() {
               </h3>
               <Link href="/presupuestos" className="text-xs text-ink-500 hover:text-ink-700">Ver</Link>
             </div>
-            {budgetRows.length === 0 ? (
-              <p className="text-sm text-ink-500 py-4 text-center">
-                Sin presupuestos definidos
-              </p>
+            {!plan.hasBudget ? (
+              <div>
+                <p className="text-sm text-ink-700">Todavía no armaste el plan de {MESES[month - 1]}.</p>
+                <Link href="/presupuestos/editar"
+                  className="inline-flex items-center h-11 mt-3 px-4 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-medium">
+                  Armar el plan en un minuto
+                </Link>
+              </div>
             ) : (
-              <div className="space-y-3">
-                {budgetRows.map(b => {
-                  const over = b.pct > 100
-                  const warn = b.pct > 80
-                  return (
-                    <div key={b.id}>
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="text-ink-700">{b.category?.name}</span>
-                        <span className={over ? 'text-neg' : warn ? 'text-warn' : 'text-pos'}>
-                          {b.pct.toFixed(0)}%
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full ${over ? 'bg-neg-fill' : warn ? 'bg-warn' : 'bg-brand'}`}
-                          style={{ width: `${Math.min(b.pct, 100)}%` }} />
-                      </div>
-                      <p className="text-[11px] text-ink-500 mt-1 num">
-                        {formatCurrency(b.spent)} de {formatCurrency(b.amount)}
-                      </p>
-                    </div>
-                  )
-                })}
+              <div>
+                <p className="text-sm text-ink-700">
+                  <span className="num text-lg font-semibold text-ink-900">{formatCurrency(plan.spentTotal)}</span>
+                  {' '}de <span className="num">{formatCurrency(plan.plannedTotal)}</span> · {Math.round(planPct * 100)} %
+                </p>
+                <div className="relative h-2 mt-2 rounded-full bg-muted">
+                  <div className={`h-full rounded-full ${planPct > 1 ? 'bg-neg-fill' : planPct > 0.9 ? 'bg-warn' : 'bg-brand'}`}
+                    style={{ width: `${Math.min(planPct, 1) * 100}%` }} />
+                  {planProgress > 0 && planProgress < 1 && (
+                    <div className="absolute -top-1 -bottom-1 w-0.5 rounded bg-ink-900" style={{ left: `${planProgress * 100}%` }}
+                      title="Donde deberías ir hoy" aria-hidden="true" />
+                  )}
+                </div>
+                <p className="text-xs text-ink-500 mt-2">
+                  {overCats.length > 0
+                    ? <span className="text-neg">{overCats.length} {overCats.length === 1 ? 'categoría excedida' : 'categorías excedidas'}</span>
+                    : 'Ninguna categoría excedida'}
+                  {planLeft > 0 && <> · te quedan <span className="num">{formatCurrency(planLeft)}</span> de lo variable</>}
+                </p>
               </div>
             )}
           </div>

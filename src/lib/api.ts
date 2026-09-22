@@ -249,6 +249,9 @@ export interface TransactionLite {
   date: string
   category_id: string | null
   status: Transaction['status']
+  is_recurring: boolean
+  installments_total: number
+  description: string
 }
 
 export async function getTransactionsLite(dateFrom: string, dateTo: string) {
@@ -257,7 +260,7 @@ export async function getTransactionsLite(dateFrom: string, dateTo: string) {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await sb()
       .from('transactions')
-      .select('type, amount, date, category_id, status')
+      .select('type, amount, date, category_id, status, is_recurring, installments_total, description')
       .gte('date', dateFrom)
       .lte('date', dateTo)
       .order('date', { ascending: true })
@@ -419,6 +422,8 @@ export async function reorderCategories(ids: string[]) {
 // PRESUPUESTOS
 // ============================================================
 
+// Todas las filas de presupuesto (intervalos). Se escriben solo con
+// planBudgetWrites + applyBudgetWrites, que nunca tocan meses pasados.
 export async function getBudgets() {
   const { data, error } = await sb()
     .from('budgets')
@@ -429,22 +434,59 @@ export async function getBudgets() {
   return data as Budget[]
 }
 
-export async function upsertBudget(budget: Partial<Budget>) {
-  const { data, error } = await sb()
-    .from('budgets')
-    .upsert(budget)
-    .select()
-    .single()
-  if (error) throw error
-  return data as Budget
+// ---- Presupuesto por mes (docs/ux/05-PRESUPUESTO.md) ----
+
+export interface MonthPlan {
+  year: number
+  month: number
+  expected_income: number | null
+  savings_target: number
 }
 
-export async function deleteBudget(id: string) {
+// La tabla month_plans la crea sql/migrations/001_presupuesto_por_mes.sql.
+// Si todavía no se corrió, la app sigue andando sin ingreso esperado ni ahorro.
+function isMissingTable(error: { code?: string; message?: string }) {
+  return error.code === '42P01' || error.code === 'PGRST205' || /month_plans/.test(error.message || '')
+}
+
+export async function getMonthPlans(): Promise<{ plans: MonthPlan[]; missing: boolean }> {
+  const { data, error } = await sb()
+    .from('month_plans')
+    .select('year, month, expected_income, savings_target')
+  if (error) {
+    if (isMissingTable(error)) return { plans: [], missing: true }
+    throw error
+  }
+  return {
+    plans: (data || []).map(p => ({
+      ...p,
+      expected_income: p.expected_income === null ? null : Number(p.expected_income),
+      savings_target: Number(p.savings_target || 0),
+    })),
+    missing: false,
+  }
+}
+
+export async function saveMonthPlan(plan: MonthPlan) {
   const { error } = await sb()
-    .from('budgets')
-    .update({ is_active: false })
-    .eq('id', id)
+    .from('month_plans')
+    .upsert({ ...plan, updated_at: new Date().toISOString() }, { onConflict: 'user_id,year,month' })
   if (error) throw error
+}
+
+// Filas de budgets para escribir en un solo viaje: las que cambian (con id) y
+// las nuevas; y los ids que sobran. Ver planBudgetWrites en lib/budget.ts.
+export async function applyBudgetWrites(upserts: Partial<Budget>[], deleteIds: string[]) {
+  // Primero lo que queda (nunca choca: las filas nuevas reutilizan el id de
+  // la que tenía la misma fecha de inicio), después lo que sobra.
+  if (upserts.length) {
+    const { error } = await sb().from('budgets').upsert(upserts, { onConflict: 'id' })
+    if (error) throw error
+  }
+  if (deleteIds.length) {
+    const { error } = await sb().from('budgets').delete().in('id', deleteIds)
+    if (error) throw error
+  }
 }
 
 // ============================================================

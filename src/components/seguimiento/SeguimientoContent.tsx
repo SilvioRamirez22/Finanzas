@@ -58,7 +58,17 @@ function useWidth<T extends HTMLElement>() {
   return [ref, width] as const
 }
 
-export default function SeguimientoContent({ series, range, selKey, setSelKey, catId, setCatId, catName }: {
+export interface PlanPoint {
+  key: string
+  month: number
+  planned: number
+  spent: number
+  hasBudget: boolean
+  inProgress: boolean
+  projection: number | null
+}
+
+export default function SeguimientoContent({ series, range, selKey, setSelKey, catId, setCatId, catName, planPoints = [] }: {
   series: Series
   range: number
   selKey: string | null
@@ -66,6 +76,7 @@ export default function SeguimientoContent({ series, range, selKey, setSelKey, c
   catId: string | null
   setCatId: (id: string) => void
   catName: (id: string) => string
+  planPoints?: PlanPoint[]
 }) {
   const months = series.months
   const hasData = months.some(p => p.income > 0 || p.expense > 0)
@@ -98,7 +109,7 @@ export default function SeguimientoContent({ series, range, selKey, setSelKey, c
         <div className="space-y-3 md:space-y-4">
           <SavingsCard months={months} closed={closed} />
           <InsightsCard insights={insights} />
-          <PlanCard />
+          <PlanCard points={planPoints} />
         </div>
       </div>
       <CategoriesCard series={series} catId={catId} setCatId={setCatId} catName={catName} />
@@ -317,17 +328,86 @@ function SavingsCard({ months, closed }: { months: MonthPoint[]; closed: MonthPo
   )
 }
 
-// ---------- Plan (se activa con el presupuesto por mes) ----------
-function PlanCard() {
+// ---------- Gasto contra el plan ----------
+function PlanCard({ points }: { points: PlanPoint[] }) {
+  const [ref, width] = useWidth<HTMLDivElement>()
+  const withPlan = points.filter(p => p.hasBudget)
+  if (withPlan.length === 0) {
+    return (
+      <section className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+        <h2 className="text-sm font-semibold text-ink-900">Gasto contra el plan</h2>
+        <p className="text-sm text-ink-700 mt-1">
+          Cuando armes el plan de un mes, acá vas a ver en qué meses te pasaste y por cuánto.
+        </p>
+        <Link href="/presupuestos/editar" className="inline-flex items-center h-11 mt-2 text-sm font-medium text-brand-ink underline underline-offset-2">
+          Armar el plan
+        </Link>
+      </section>
+    )
+  }
+
+  const H = 136, base = 116, top = 6, L = 52
+  const max = niceMax(Math.max(...points.map(p => Math.max(p.spent, p.planned, p.inProgress && p.projection ? p.projection : 0))))
+  const y = (v: number) => base - (v / max) * (base - top)
+  const gw = Math.max(0, width - L) / points.length
+  const bw = Math.max(4, Math.min(22, gw - 10))
+  let noPlan = '', inside = '', excess = '', proj = '', ticks = ''
+  points.forEach((p, j) => {
+    const x = L + gw * j + gw / 2 - bw / 2
+    if (!p.hasBudget) { noPlan += barPath(x, bw, base, y(p.spent)); return }
+    if (p.spent > p.planned) {
+      inside += `M${x} ${base}V${y(p.planned)}H${x + bw}V${base}Z`
+      excess += barPath(x, bw, y(p.planned), y(p.spent))
+    } else inside += barPath(x, bw, base, y(p.spent))
+    if (p.inProgress && p.projection && p.projection > p.spent) proj += outlinePath(x, bw, y(p.spent), y(p.projection))
+    ticks += `M${x - 4} ${y(p.planned)}H${x + bw + 4}`
+  })
+  const closed = withPlan.filter(p => !p.inProgress)
+  const over = closed.filter(p => p.spent > p.planned).length
+  const cur = withPlan.find(p => p.inProgress)
+  const curDiff = cur?.projection ? cur.planned - cur.projection : null
+
   return (
     <section className="bg-surface rounded-2xl border border-line p-4 md:p-5">
-      <h2 className="text-sm font-semibold text-ink-900">Gasto contra el plan</h2>
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold text-ink-900">Gasto contra el plan</h2>
+        <Link href="/presupuestos" className="text-xs font-medium text-brand-ink">Presupuesto</Link>
+      </div>
       <p className="text-sm text-ink-700 mt-1">
-        Cuando armes el presupuesto de cada mes, acá vas a ver en qué meses te pasaste y por cuánto.
+        {closed.length > 0 && `Te pasaste en ${over} de ${closed.length} ${closed.length === 1 ? 'mes' : 'meses'} con plan. `}
+        {cur && curDiff !== null && `${cap(MESES[cur.month - 1])} va ${formatCurrency(Math.abs(curDiff))} ${curDiff >= 0 ? 'abajo' : 'arriba'} del plan si seguís a este ritmo.`}
       </p>
-      <Link href="/presupuestos" className="inline-flex items-center h-11 mt-2 text-sm font-medium text-brand-ink underline underline-offset-2">
-        Ir a Presupuesto
-      </Link>
+      <div ref={ref} className="relative mt-3" style={{ height: H + 18 }}>
+        {width > 0 && (
+          <svg width={width} height={H} className="block" aria-hidden="true">
+            {[max, max / 2, 0].map(v => (
+              <g key={v}>
+                <line x1={L} x2={width} y1={y(v)} y2={y(v)} stroke="var(--chart-grid)" />
+                <text x={0} y={y(v) + 3} fontSize="10" fill="var(--ink-500)">{compact(v)}</text>
+              </g>
+            ))}
+            <path d={noPlan} fill="var(--muted)" />
+            <path d={inside} fill="var(--chart-neutral)" />
+            <path d={excess} fill="var(--neg)" />
+            <path d={proj} fill="none" stroke="var(--chart-neutral)" strokeWidth="1.5" strokeDasharray="3 2" />
+            <path d={ticks} stroke="var(--ink-900)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+          </svg>
+        )}
+        <div className="absolute bottom-0 right-0 flex" style={{ left: L }}>
+          {points.map(p => (
+            <span key={p.key} className="flex-1 text-center text-[11px] leading-4 text-ink-500"
+              title={p.hasBudget ? `${cap(MESES[p.month - 1])}: ${formatCurrency(p.spent)} de ${formatCurrency(p.planned)}` : `${cap(MESES[p.month - 1])}: sin plan`}>
+              {points.length > 6 ? MESES_CORTO[p.month - 1].slice(0, 1).toUpperCase() : MESES_CORTO[p.month - 1]}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-x-3.5 gap-y-1.5 mt-2 text-xs text-ink-700">
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[var(--chart-neutral)]" />Gastado</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-[3px] rounded-sm bg-ink-900" />Plan del mes</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-neg" />Arriba del plan</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-muted" />Sin plan</span>
+      </div>
     </section>
   )
 }

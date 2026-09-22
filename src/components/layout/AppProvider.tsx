@@ -94,12 +94,14 @@ export default function AppProvider({ children }: { children: React.ReactNode })
     return () => { cancelled = true }
   }, [])
 
-  // Cada vez que cambia un movimiento, los saldos de las cuentas tambien.
+  // Cada vez que cambia un movimiento (o un presupuesto), los saldos de las cuentas tambien.
   // Un solo lugar que los refresca, asi ninguna pantalla se tiene que acordar.
   const firstVersion = useRef(dataVersion)
   useEffect(() => {
     if (dataVersion === firstVersion.current) return
     getAccounts().then(setAccounts).catch(e => console.error('Error refrescando cuentas:', e))
+    // Los presupuestos también: el Resumen arma la tarjeta del plan con ellos.
+    getBudgets().then(setBudgets).catch(e => console.error('Error refrescando presupuestos:', e))
   }, [dataVersion])
 
   // La app se usa desde varios dispositivos: si esta pestania estuvo un rato en

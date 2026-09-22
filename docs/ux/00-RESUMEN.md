@@ -118,8 +118,17 @@ dispositivos); sin cola offline (guardaría datos en el navegador) y sin actuali
 (la recarga en segundo plano de la etapa 1 alcanza por ahora).
 
 ### Etapa 4 — Presupuesto (`05`)
-Fase 0 (modelo por mes + las dos RPC) → Fase 1 (vista del mes con ritmo, editor con "sin
-asignar") → Fase 2 (asistente, fijos y cuotas comprometidos, historial correcto).
+✅ Fase 0 y 1 (2026-09-22). Topes por intervalo sobre `budgets` (sin tabla nueva): "desde este
+mes" o "solo este mes", nunca cambia meses pasados (probado con 19 casos). Vista del mes con plan,
+ritmo, fijos/cuotas/variable por separado, categorías ordenadas por riesgo, "sin presupuesto" con
+acción, cumplimiento correcto (D3). Editor a pantalla completa con "sin asignar" en vivo, copiar
+del mes anterior y sugerir por promedio; la primera vez viene prellenado. Tarjeta del plan en el
+Resumen y "Gasto contra el plan" en Seguimiento.
+Distinto de la spec: sin RPC nuevas (se calcula en el cliente con 3 consultas) y el editor usa el
+teclado numérico del sistema. **Pendiente del lado de Supabase:** correr
+`sql/migrations/001_presupuesto_por_mes.sql` (crea `month_plans`); hasta entonces el ingreso
+esperado y el ahorro no se guardan y la app lo avisa.
+Falta de fase 2: "cargar los fijos del mes" (F3) y alertas en la tarjeta "Atención".
 
 ### Seguimiento (`07`)
 ✅ (2026-09-22) `/seguimiento` reemplaza a `/historico` (que redirige). En el celular va en la barra

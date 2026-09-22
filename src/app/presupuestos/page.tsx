@@ -1,380 +1,461 @@
 'use client'
-import { useEffect, useState, useCallback, useMemo } from 'react'
-import { getExpensesByCategory, getBudgets, upsertBudget, deleteBudget, getTransactions } from '@/lib/api'
-import { useAppStore } from '@/store/useAppStore'
-import { formatCurrency } from '@/lib/format'
+import { useMemo, useState } from 'react'
+import Link from 'next/link'
+import { ChevronRight, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { X } from 'lucide-react'
-import type { Budget, CategoryExpense } from '@/types'
+import { applyBudgetWrites } from '@/lib/api'
+import { loadBudgetData } from '@/lib/budgetData'
+import { useAppStore } from '@/store/useAppStore'
+import { useMonthData } from '@/lib/useMonthData'
+import { formatCurrency } from '@/lib/format'
+import { CardSkeleton, ErrorState } from '@/components/ui/States'
+import Sheet from '@/components/ui/Sheet'
+import CategoryIcon from '@/components/CategoryIcon'
+import {
+  summarizeMonth, monthProgress, planBudgetWrites, roundPlan, shift,
+  type MonthBudget, type CategoryLine, type BudgetMode,
+} from '@/lib/budget'
+
+// Presupuesto del mes (docs/ux/05-PRESUPUESTO.md §5.1): el plan, cómo vengo
+// contra el ritmo del mes, cada categoría y el cumplimiento de los últimos meses.
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
-const MESES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-
-function monthRange(y: number, m: number) {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const last = new Date(y, m, 0).getDate()
-  return { from: `${y}-${pad(m)}-01`, to: `${y}-${pad(m)}-${pad(last)}` }
-}
-function shiftMonth(y: number, m: number, delta: number) {
-  let mm = m + delta, yy = y
-  while (mm > 12) { mm -= 12; yy++ }
-  while (mm < 1) { mm += 12; yy-- }
-  return { year: yy, month: mm }
-}
+const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 
 export default function PresupuestosPage() {
-  const { categories, budgets, setBudgets, selectedMonth, dataVersion } = useAppStore()
+  const { categories, selectedMonth, profile, notifyDataChanged } = useAppStore()
   const { year, month } = selectedMonth
+  const { data, error, reload } = useMonthData(loadBudgetData)
+  const [editing, setEditing] = useState<{ line: CategoryLine; suggested: number } | null>(null)
 
-  const [cats, setCats] = useState<CategoryExpense[]>([])
-  const [history, setHistory] = useState<{ label: string; pct: number }[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(false)
+  const roots = useMemo(
+    () => categories.filter(c => !c.parent_id && c.is_active && c.type !== 'income'),
+    [categories]
+  )
+  const rootIds = useMemo(() => roots.map(c => c.id), [roots])
+  const cat = (id: string) => categories.find(c => c.id === id)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const summary = useMemo(
+    () => data ? summarizeMonth(data.txs, data.budgets, year, month, rootIds) : null,
+    [data, year, month, rootIds]
+  )
+  const history = useMemo(() => {
+    if (!data) return []
+    return Array.from({ length: 6 }, (_, i) => {
+      const p = shift(year, month, i - 5)
+      return summarizeMonth(data.txs, data.budgets, p.year, p.month, rootIds)
+    })
+  }, [data, year, month, rootIds])
+
+  if (error && !data) return <ErrorState onRetry={reload} />
+
+  if (!data || !summary) {
+    return (
+      <div className="grid lg:grid-cols-[1fr_400px] gap-3 md:gap-4">
+        <div className="space-y-3"><CardSkeleton big lines={4} /><CardSkeleton lines={6} /></div>
+        <CardSkeleton lines={5} />
+      </div>
+    )
+  }
+
+  const plan = data.plans.plans.find(p => p.year === year && p.month === month) || null
+  const progress = monthProgress(year, month)
+
+  async function saveOne(categoryId: string, amount: number, mode: BudgetMode) {
+    if (!profile || !data) return
     try {
-      const { from, to } = monthRange(year, month)
-      const [c, b] = await Promise.all([
-        getExpensesByCategory(from, to),
-        getBudgets(),
-      ])
-      setCats((c || []).filter(x => x.total > 0))
-      setBudgets(b || [])
-
-      // Cumplimiento de los últimos 6 meses
-      const hist: { label: string; pct: number }[] = []
-      const totalBudget = (b || []).reduce((s, x) => s + Number(x.amount), 0)
-      for (let i = 5; i >= 0; i--) {
-        const mm = shiftMonth(year, month, -i)
-        const r = monthRange(mm.year, mm.month)
-        const { data } = await getTransactions({ date_from: r.from, date_to: r.to, type: 'expense' }, 5000, 0)
-        const spent = (data || []).reduce((s, t) => s + Number(t.amount), 0)
-        hist.push({
-          label: MESES_CORTO[mm.month - 1],
-          pct: totalBudget > 0 ? (spent / totalBudget) * 100 : 0,
-        })
-      }
-      setHistory(hist)
-    } finally {
-      setLoading(false)
+      const { upserts, deletes } = planBudgetWrites(data.budgets, profile.id, categoryId, amount, year, month, mode)
+      await applyBudgetWrites(upserts, deletes)
+      notifyDataChanged()
+      setEditing(null)
+      toast.success(amount > 0 ? 'Presupuesto guardado' : 'Presupuesto quitado')
+    } catch (e: any) {
+      toast.error(e.message || 'No se pudo guardar')
     }
-  }, [year, month, setBudgets])
+  }
 
-  // dataVersion: recargar cuando se guarda, edita o borra un movimiento.
-  useEffect(() => { load() }, [load, dataVersion])
-
-  // Filas con presupuesto
-  const rows = useMemo(() => {
-    return budgets.map(b => {
-      const spent = cats.find(c => c.category_id === b.category_id)?.total || 0
-      const amount = Number(b.amount)
-      const pct = amount > 0 ? (spent / amount) * 100 : 0
-      return { budget: b, name: b.category?.name || '—', spent, amount, pct, diff: spent - amount }
-    }).sort((a, b) => b.pct - a.pct)
-  }, [budgets, cats])
-
-  const totalBudget = rows.reduce((s, r) => s + r.amount, 0)
-  const totalSpent = rows.reduce((s, r) => s + r.spent, 0)
-  const globalPct = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
-  const overCount = rows.filter(r => r.pct > 100).length
-
-  // Categorías sin presupuesto
-  const budgetedIds = new Set(budgets.map(b => b.category_id))
-  const noBudget = cats.filter(c => !budgetedIds.has(c.category_id))
-  const noBudgetTotal = noBudget.reduce((s, c) => s + c.total, 0)
-
-  const nextMonth = shiftMonth(year, month, 1)
-  const goodMonths = history.filter(h => h.pct > 0 && h.pct <= 100).length
-  const monthsWithData = history.filter(h => h.pct > 0).length
+  const budgeted = sortByRisk(summary.lines.filter(l => l.budget > 0), progress)
+  const unbudgeted = summary.lines.filter(l => l.budget === 0 && l.variable > 0).sort((a, b) => b.variable - a.variable)
+  const unbudgetedTotal = unbudgeted.reduce((s, l) => s + l.variable, 0)
+  const name = (id: string) => id === 'none' ? 'Sin categoría' : cat(id)?.name || 'Otra'
 
   return (
-    <div className="grid lg:grid-cols-[1fr_420px] gap-4">
-      {/* IZQUIERDA */}
-      <div className="space-y-4">
-        {/* Presupuesto usado */}
-        <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <p className="text-[11px] tracking-wide text-ink-500 font-medium">PRESUPUESTO USADO</p>
-            <button onClick={() => setEditing(true)}
-              className="border border-line rounded-lg px-3 py-1.5 text-sm text-ink-700 hover:bg-surface-2">
-              Editar presupuestos
-            </button>
-          </div>
-          {totalBudget === 0 ? (
-            <div className="py-6">
-              <p className="text-sm text-ink-500">
-                Todavía no definiste presupuestos. Tocá <b>Editar presupuestos</b> para asignar un monto mensual por categoría.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-baseline gap-3 mt-1">
-                <span className="text-3xl md:text-4xl font-semibold text-ink-900 tracking-tight">
-                  {globalPct.toFixed(0)}%
-                </span>
-                <span className="text-sm text-ink-500 num">
-                  {formatCurrency(totalSpent)} de {formatCurrency(totalBudget)}
-                </span>
-              </div>
-              <p className="text-sm text-ink-500 mt-1">
-                {totalSpent <= totalBudget
-                  ? <>Te sobraron <b className="text-pos">{formatCurrency(totalBudget - totalSpent)}</b></>
-                  : <>Te pasaste por <b className="text-neg">{formatCurrency(totalSpent - totalBudget)}</b></>}
-                {overCount > 0 && <> · {overCount} {overCount === 1 ? 'categoría se pasó' : 'categorías se pasaron'}</>}
-              </p>
-              <div className="mt-4 h-2 rounded-full bg-muted overflow-hidden">
-                <div className={`h-full rounded-full ${globalPct > 100 ? 'bg-neg-fill' : 'bg-brand'}`}
-                  style={{ width: `${Math.min(globalPct, 100)}%` }} />
-              </div>
-            </>
-          )}
-        </div>
+    <div className="grid lg:grid-cols-[1fr_400px] gap-3 md:gap-4 items-start">
+      <div className="space-y-3 md:space-y-4">
+        {error && <ErrorState compact onRetry={reload} />}
+        {data.plans.missing && <MigrationNotice />}
 
-        {/* Por categoría */}
-        <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-ink-900">Por categoría</h3>
-            <span className="text-xs text-ink-500">Ordenado por desvío</span>
-          </div>
-          {rows.length === 0 ? (
-            <p className="text-sm text-ink-500 py-8 text-center">Sin presupuestos definidos</p>
-          ) : (
-            <div className="divide-y divide-line">
-              {rows.map(r => {
-                const over = r.pct > 100
-                const warn = r.pct > 90
-                return (
-                  // w-40 + w-14 + w-28 + barra flexible pedían más ancho del que
-                  // tiene un celular. Acá la barra pasa a una línea propia.
-                  <div key={r.budget.id} className="py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-                    <div className="order-1 flex-1 min-w-0 md:flex-none md:w-40">
-                      <p className="text-sm text-ink-900 truncate">{r.name}</p>
-                      <p className="text-[11px] text-ink-500 num">
-                        {formatCurrency(r.spent)} / {formatCurrency(r.amount)}
-                      </p>
-                    </div>
-                    <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-muted rounded-sm overflow-hidden relative">
-                      <div className={`h-full ${over ? 'bg-neg-fill' : warn ? 'bg-warn' : 'bg-brand'}`}
-                        style={{ width: `${Math.min(r.pct, 100)}%` }} />
-                      <div className="absolute top-0 bottom-0 w-px bg-ink-300" style={{ left: '100%' }} />
-                    </div>
-                    <span className={`order-2 md:order-3 w-12 md:w-14 text-right text-sm flex-shrink-0 ${over ? 'text-neg' : warn ? 'text-warn' : 'text-pos'}`}>
-                      {r.pct.toFixed(0)}%
-                    </span>
-                    <span className={`order-3 md:order-4 text-right text-xs md:text-sm flex-shrink-0 md:w-28 ${over ? 'text-neg' : 'text-ink-500'} num`}>
-                      {over ? `+${formatCurrency(r.diff)}` : `${formatCurrency(-r.diff)} libre`}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+        <PlanCard summary={summary} plan={plan} progress={progress} month={month} name={name} />
 
-        {/* Sin presupuesto */}
-        {noBudget.length > 0 && (
-          <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
-            <h3 className="text-sm font-semibold text-ink-900">Sin presupuesto</h3>
-            <p className="text-sm text-ink-500 mt-1 num">
-              {formatCurrency(noBudgetTotal)} <span style={{ fontFamily: 'inherit' }} className="font-sans">
-                en {noBudget.length} {noBudget.length === 1 ? 'categoría quedó' : 'categorías quedaron'} fuera del plan.
-              </span>
-            </p>
-            <div className="flex flex-wrap gap-2 mt-3">
-              {noBudget.slice(0, 12).map(c => (
-                <span key={c.category_id}
-                  className="border border-line rounded-lg px-3 py-1.5 text-sm text-ink-700">
-                  {c.category_name} <span className="text-ink-500 num">
-                    {formatCurrency(c.total)}
-                  </span>
-                </span>
+        {summary.hasBudget && (
+          <section className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-ink-900">Por categoría</h2>
+              <span className="text-xs text-ink-500">primero las que están en riesgo</span>
+            </div>
+            <ul className="mt-2 divide-y divide-line">
+              {budgeted.map(l => (
+                <CategoryRow key={l.id} line={l} progress={progress} name={name(l.id)}
+                  icon={cat(l.id)?.icon} color={cat(l.id)?.color}
+                  onEdit={() => setEditing({ line: l, suggested: l.budget })} />
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
+        )}
+
+        {unbudgeted.length > 0 && (
+          <section className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+            <h2 className="text-sm font-semibold text-ink-900">Sin presupuesto</h2>
+            <p className="text-sm text-ink-700 mt-1">
+              <span className="num">{formatCurrency(unbudgetedTotal)}</span> de gasto variable quedó fuera del plan.
+            </p>
+            <ul className="mt-2 divide-y divide-line">
+              {unbudgeted.map(l => (
+                <li key={l.id} className="flex items-center justify-between gap-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block text-sm text-ink-900 truncate">{name(l.id)}</span>
+                    <span className="block text-xs text-ink-500 num">
+                      {formatCurrency(l.variable)}{l.avg3 > 0 && ` · promedio ${formatCurrency(l.avg3)}`}
+                    </span>
+                  </span>
+                  {l.id !== 'none' && (
+                    <button onClick={() => setEditing({ line: l, suggested: roundPlan(Math.max(l.avg3, l.variable)) })}
+                      className="h-11 px-3 rounded-xl border border-line text-sm font-medium text-ink-900 hover:bg-surface-2 flex-shrink-0">
+                      Presupuestar
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
       </div>
 
-      {/* DERECHA */}
-      <div className="space-y-4">
-        {/* Cumplimiento */}
-        <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
-          <h3 className="text-sm font-semibold text-ink-900 mb-4">Cumplimiento</h3>
-          {totalBudget === 0 ? (
-            <p className="text-sm text-ink-500 py-6 text-center">Definí presupuestos para ver el historial</p>
-          ) : (
-            <>
-              <div className="flex items-end gap-2 h-24">
-                {history.map((h, i) => {
-                  const over = h.pct > 100
-                  const height = Math.max(Math.min(h.pct, 130), 8)
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                      <div className={`w-full rounded-sm ${
-                        h.pct === 0 ? 'bg-line' : over ? 'bg-neg-fill' : 'bg-brand'
-                      }`} style={{ height: `${(height / 130) * 100}%` }} />
-                      <span className="text-[11px] text-ink-500">{h.label}</span>
-                    </div>
-                  )
-                })}
-              </div>
-              <p className="text-xs text-ink-500 mt-4">
-                Cerraste dentro del presupuesto <b>{goodMonths}</b> de los últimos {monthsWithData || 6} meses.
-              </p>
-            </>
-          )}
-        </div>
-
-        {/* Sugerencias */}
-        <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
-          <h3 className="text-sm font-semibold text-ink-900 mb-3">
-            Para {MESES[nextMonth.month - 1]}
-          </h3>
-          {rows.length === 0 && noBudget.length === 0 ? (
-            <p className="text-sm text-ink-500 py-4 text-center">Sin sugerencias todavía</p>
-          ) : (
-            <div className="divide-y divide-line">
-              {rows.filter(r => r.pct > 100).slice(0, 2).map(r => (
-                <Suggestion key={r.budget.id}
-                  title={r.name}
-                  detail={`Se pasó este mes · subir a ${formatCurrency(Math.ceil(r.spent / 10000) * 10000)}`}
-                  onApply={async () => {
-                    await upsertBudget({ id: r.budget.id, category_id: r.budget.category_id, amount: Math.ceil(r.spent / 10000) * 10000, period: 'monthly' })
-                    toast.success('Presupuesto actualizado')
-                    load()
-                  }} />
-              ))}
-              {rows.filter(r => r.pct < 70 && r.pct > 0).slice(0, 1).map(r => (
-                <Suggestion key={r.budget.id}
-                  title={r.name}
-                  detail={`Usás el ${r.pct.toFixed(0)}% · bajar a ${formatCurrency(Math.ceil(r.spent * 1.15 / 10000) * 10000)}`}
-                  onApply={async () => {
-                    await upsertBudget({ id: r.budget.id, category_id: r.budget.category_id, amount: Math.ceil(r.spent * 1.15 / 10000) * 10000, period: 'monthly' })
-                    toast.success('Presupuesto actualizado')
-                    load()
-                  }} />
-              ))}
-              {noBudget.slice(0, 2).map(c => (
-                <Suggestion key={c.category_id}
-                  title={c.category_name}
-                  detail={`${formatCurrency(c.total)} sin presupuesto · crear uno`}
-                  onApply={async () => {
-                    await upsertBudget({ category_id: c.category_id, amount: Math.ceil(c.total * 1.1 / 10000) * 10000, period: 'monthly' })
-                    toast.success('Presupuesto creado')
-                    load()
-                  }} />
-              ))}
-            </div>
-          )}
-        </div>
+      <div className="space-y-3 md:space-y-4">
+        <HistoryCard history={history} />
       </div>
 
-      {/* Modal editar presupuestos */}
-      {editing && (
-        <EditBudgets
-          categories={categories.filter(c => !c.parent_id && c.type !== 'income')}
-          budgets={budgets}
-          cats={cats}
-          onClose={() => setEditing(false)}
-          onSaved={() => { setEditing(false); load() }}
-        />
+      <EditOneSheet
+        editing={editing}
+        name={editing ? name(editing.line.id) : ''}
+        month={month}
+        onClose={() => setEditing(null)}
+        onSave={saveOne}
+      />
+    </div>
+  )
+}
+
+// Excedidas primero, después las adelantadas respecto del ritmo del mes, y el
+// resto por monto (decisión 7 de 05-PRESUPUESTO.md).
+function sortByRisk(lines: CategoryLine[], progress: number) {
+  const risk = (l: CategoryLine) => {
+    if (l.variable > l.budget) return 2
+    if (progress > 0 && progress < 1 && l.variable / l.budget > progress + 0.1) return 1
+    return 0
+  }
+  return [...lines].sort((a, b) => {
+    const r = risk(b) - risk(a)
+    if (r) return r
+    if (risk(a) === 2) return (b.variable - b.budget) - (a.variable - a.budget)  // más excedida primero
+    if (risk(a) === 1) return b.variable / b.budget - a.variable / a.budget      // más adelantada primero
+    return b.budget - a.budget
+  })
+}
+
+function MigrationNotice() {
+  return (
+    <div role="status" className="rounded-2xl border border-line bg-warn-soft px-4 py-3 text-sm text-warn">
+      <b>Falta un paso en Supabase</b> para guardar el ingreso esperado y el ahorro de cada mes: correr{' '}
+      <code className="text-xs">sql/migrations/001_presupuesto_por_mes.sql</code> en el SQL Editor. Los topes por
+      categoría ya funcionan.
+    </div>
+  )
+}
+
+// ---------- (a) El plan del mes ----------
+function PlanCard({ summary: s, plan, progress, month, name }: {
+  summary: MonthBudget
+  plan: { expected_income: number | null; savings_target: number } | null
+  progress: number
+  month: number
+  name: (id: string) => string
+}) {
+  const mes = MESES[month - 1]
+  const editHref = '/presupuestos/editar'
+
+  if (!s.hasBudget) {
+    return (
+      <section className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+        <p className="text-[11px] font-semibold tracking-wide text-ink-500">PLAN DE {mes.toUpperCase()}</p>
+        <h2 className="text-lg font-semibold text-ink-900 mt-1">Armá tu plan de {mes} en un minuto</h2>
+        <p className="text-sm text-ink-700 mt-1">
+          Te propongo topes a partir de lo que gastaste en promedio los últimos 3 meses; los ajustás y listo.
+          {s.committed > 0 && <> Ya hay <b className="num">{formatCurrency(s.committed)}</b> comprometidos en fijos y cuotas.</>}
+        </p>
+        <Link href={editHref} className="inline-flex items-center h-12 mt-4 px-5 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-semibold">
+          Armar el plan
+        </Link>
+      </section>
+    )
+  }
+
+  const pct = s.plannedTotal > 0 ? s.spentTotal / s.plannedTotal : 0
+  const varPct = s.budgetedVariable > 0 ? s.variableOnBudgeted / s.budgetedVariable : 0
+  const remaining = s.budgetedVariable - s.variableOnBudgeted
+  const daysInMonth = new Date(s.year, s.month, 0).getDate()
+  const daysLeft = progress > 0 && progress < 1 ? daysInMonth - Math.round(progress * daysInMonth) + 1 : 0
+  const over = s.lines.filter(l => l.budget > 0 && l.variable > l.budget)
+
+  let status: React.ReactNode
+  if (progress === 0) {
+    status = <>Todavía no empezó. Ya hay <b className="num">{formatCurrency(s.committed)}</b> comprometidos en fijos y cuotas.</>
+  } else if (progress === 1) {
+    const diff = s.spentTotal - s.plannedTotal
+    status = <>Cerraste en <b className="num">{formatCurrency(s.spentTotal)}</b>: {Math.abs(diff) < 1000 ? 'justo en el plan' : <><b className="num">{formatCurrency(Math.abs(diff))}</b> {diff > 0 ? 'arriba' : 'abajo'} del plan</>}.</>
+  } else if (over.length > 0) {
+    const excess = over.reduce((sum, l) => sum + l.variable - l.budget, 0)
+    status = over.length === 1
+      ? <>Te pasaste <b className="num">{formatCurrency(excess)}</b> en {name(over[0].id)}.</>
+      : <>Te pasaste <b className="num">{formatCurrency(excess)}</b>: {over.slice(0, 3).map(l => `${name(l.id)} +${formatCurrency(l.variable - l.budget)}`).join(', ')}.</>
+  } else if (varPct > progress + 0.05) {
+    const projected = s.variableOnBudgeted / progress
+    status = <>Vas <b className="num">{formatCurrency(s.variableOnBudgeted - s.budgetedVariable * progress)}</b> arriba del ritmo. Si seguís así, lo variable cierra en <b className="num">{formatCurrency(projected)}</b> (+{Math.round((projected / s.budgetedVariable - 1) * 100)} %).</>
+  } else {
+    status = <>Vas bien: a esta altura del mes deberías ir en {Math.round(progress * 100)} % de lo variable y vas en {Math.round(varPct * 100)} %.</>
+  }
+
+  const available = plan?.expected_income != null ? plan.expected_income - (plan.savings_target || 0) : null
+  const unassigned = available !== null ? available - s.plannedTotal : null
+
+  return (
+    <section className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[11px] font-semibold tracking-wide text-ink-500">PLAN DE {mes.toUpperCase()}</p>
+        <Link href={editHref} className="inline-flex items-center gap-1.5 h-9 px-3 -mt-1.5 -mr-1 rounded-lg border border-line text-sm text-ink-700 hover:bg-surface-2">
+          <Pencil size={14} /> Editar
+        </Link>
+      </div>
+      <p className="text-ink-900 mt-1">
+        <span className="text-sm text-ink-700">Gastaste </span>
+        <span className="num text-[26px] sm:text-3xl font-semibold tracking-tight">{formatCurrency(s.spentTotal)}</span>
+        <span className="text-sm text-ink-700"> de <span className="num">{formatCurrency(s.plannedTotal)}</span></span>
+      </p>
+      <Bar pct={pct} marker={progress > 0 && progress < 1 ? progress : null} />
+      <p className="text-sm text-ink-700 mt-2">{status}</p>
+      {daysLeft > 0 && remaining > 0 && (
+        <p className="text-sm text-ink-700 mt-1">
+          Te quedan <b className="num">{formatCurrency(remaining)}</b> para {daysLeft} {daysLeft === 1 ? 'día' : 'días'}: <span className="num">{formatCurrency(remaining / daysLeft)}</span> por día.
+        </p>
+      )}
+
+      <div className="mt-4 pt-3 border-t border-line space-y-2.5">
+        <Part neutral label="Fijos" spent={s.fixedSpent} of={s.fixedSpent + s.fixedPending}
+          note={s.fixedPending > 0 ? `faltan cargar ${formatCurrency(s.fixedPending)}` : undefined} />
+        <Part neutral label="Cuotas" spent={s.installments} of={s.installments} note={s.installments > 0 ? 'ya comprometidas' : undefined} />
+        <Part label="Variable" spent={s.variableOnBudgeted} of={s.budgetedVariable} marker={progress > 0 && progress < 1 ? progress : null} />
+        {s.variableUnbudgeted > 0 && (
+          <p className="text-xs text-ink-500">
+            + <span className="num">{formatCurrency(s.variableUnbudgeted)}</span> en categorías sin presupuesto
+          </p>
+        )}
+      </div>
+
+      {available !== null && unassigned !== null && (
+        <div className="mt-3 rounded-xl bg-surface-2 px-3 py-2.5 text-sm space-y-1">
+          <div className="flex justify-between"><span className="text-ink-700">Ingreso esperado − ahorro</span><span className="num text-ink-900">{formatCurrency(available)}</span></div>
+          <div className="flex justify-between font-medium">
+            <span className="text-ink-700">{unassigned >= 0 ? 'Sin asignar' : 'El plan supera lo disponible'}</span>
+            <span className={`num ${unassigned >= 0 ? 'text-pos' : 'text-neg'}`}>{formatCurrency(Math.abs(unassigned))}</span>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// Barra de progreso con marca de 100 % implícita (el final) y, en el mes en
+// curso, la marca de "dónde deberías ir hoy".
+// neutral: fijos y cuotas, que no se gestionan; llegar al 100 % es lo esperable.
+function Bar({ pct, marker, thin = false, neutral = false }: { pct: number; marker?: number | null; thin?: boolean; neutral?: boolean }) {
+  const over = pct > 1
+  return (
+    <div className={`relative ${thin ? 'h-1.5 mt-1.5' : 'h-2.5 mt-3'} rounded-full bg-muted`}>
+      <div className={`h-full rounded-full ${neutral ? 'bg-[var(--chart-neutral)]' : over ? 'bg-neg-fill' : pct > 0.9 ? 'bg-warn' : 'bg-brand'}`}
+        style={{ width: `${Math.min(pct, 1) * 100}%` }} />
+      {marker != null && (
+        <div className="absolute -top-1 -bottom-1 w-0.5 rounded bg-ink-900" style={{ left: `${marker * 100}%` }}
+          title="Donde deberías ir hoy" aria-hidden="true" />
       )}
     </div>
   )
 }
 
-function Suggestion({ title, detail, onApply }: { title: string; detail: string; onApply: () => void }) {
+function Part({ label, spent, of, note, marker, neutral }: { label: string; spent: number; of: number; note?: string; marker?: number | null; neutral?: boolean }) {
   return (
-    <div className="flex items-center justify-between py-3 gap-3">
-      <div className="min-w-0">
-        <p className="text-sm text-ink-900">{title}</p>
-        <p className="text-[11px] text-ink-500">{detail}</p>
+    <div>
+      <div className="flex items-baseline justify-between gap-2 text-sm">
+        <span className="text-ink-700">{label}</span>
+        <span className="num text-ink-900">{formatCurrency(spent)} <span className="text-ink-500">de {formatCurrency(of)}</span></span>
       </div>
-      <button onClick={onApply}
-        className="border border-line rounded-lg px-3 py-1.5 text-xs text-ink-700 hover:bg-surface-2 flex-shrink-0">
-        Aplicar
-      </button>
+      <Bar pct={of > 0 ? spent / of : 0} marker={marker} thin neutral={neutral} />
+      {note && <p className="text-xs text-ink-500 mt-1">{note}</p>}
     </div>
   )
 }
 
-function EditBudgets({ categories, budgets, cats, onClose, onSaved }: {
-  categories: any[]; budgets: Budget[]; cats: CategoryExpense[]
-  onClose: () => void; onSaved: () => void
+// ---------- (b) Una categoría ----------
+function CategoryRow({ line: l, progress, name, icon, color, onEdit }: {
+  line: CategoryLine; progress: number; name: string; icon?: string; color?: string; onEdit: () => void
 }) {
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    const v: Record<string, string> = {}
-    budgets.forEach(b => { v[b.category_id] = String(b.amount) })
-    return v
-  })
-  const [saving, setSaving] = useState(false)
+  const pct = l.variable / l.budget
+  const over = l.variable > l.budget
+  const ahead = !over && progress > 0 && progress < 1 && pct > progress + 0.1
+  const committed = l.fixed + l.installments
+  return (
+    <li>
+      <button type="button" onClick={onEdit} className="w-full text-left py-3 group" aria-label={`${name}: editar presupuesto`}>
+        <div className="flex items-center gap-2.5">
+          <span className="w-7 h-7 flex-shrink-0 rounded-full flex items-center justify-center"
+            style={{ background: `${color || '#888780'}1F`, color: color || '#888780' }}>
+            <CategoryIcon name={icon} size={14} />
+          </span>
+          <span className="flex-1 min-w-0 text-sm font-medium text-ink-900 truncate">{name}</span>
+          <span className={`num text-sm flex-shrink-0 ${over ? 'text-neg font-medium' : 'text-ink-700'}`}>
+            {over ? `+${formatCurrency(l.variable - l.budget)} arriba` : `${formatCurrency(l.budget - l.variable)} libres`}
+          </span>
+          <ChevronRight size={16} className="text-ink-500 flex-shrink-0" />
+        </div>
+        <Bar pct={pct} marker={progress > 0 && progress < 1 ? progress : null} thin />
+        <p className="text-xs text-ink-500 mt-1.5 num">
+          {formatCurrency(l.variable)} de {formatCurrency(l.budget)}
+          {l.avg3 > 0 && ` · promedio ${formatCurrency(l.avg3)}`}
+          {committed > 0 && ` · + ${formatCurrency(committed)} en fijos y cuotas`}
+          {ahead && <span className="text-warn font-medium"> · va adelantada</span>}
+          {l.variable === 0 && <span> · sin gastos todavía</span>}
+        </p>
+      </button>
+    </li>
+  )
+}
 
-  async function save() {
+// ---------- (c) Cumplimiento ----------
+function HistoryCard({ history }: { history: MonthBudget[] }) {
+  const withPlan = history.filter(h => h.hasBudget && monthProgress(h.year, h.month) === 1)
+  const within = withPlan.filter(h => h.variableOnBudgeted <= h.budgetedVariable).length
+  const maxPct = Math.max(1.3, ...history.map(h => h.hasBudget ? h.variableOnBudgeted / h.budgetedVariable : 0))
+  return (
+    <section className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+      <h2 className="text-sm font-semibold text-ink-900">Cumplimiento</h2>
+      <p className="text-sm text-ink-700 mt-1">
+        {withPlan.length === 0
+          ? 'Cuando cierre el primer mes con plan, acá vas a ver si te mantuviste adentro.'
+          : `Cerraste dentro del plan ${within} de ${withPlan.length} ${withPlan.length === 1 ? 'mes' : 'meses'}.`}
+      </p>
+      <div className="relative mt-4 h-28 flex items-end gap-2">
+        <div className="absolute inset-x-0 border-t border-dashed border-line-strong" style={{ bottom: `${(1 / maxPct) * 100}%` }} aria-hidden="true" />
+        {history.map(h => {
+          const p = h.hasBudget ? h.variableOnBudgeted / h.budgetedVariable : 0
+          const running = monthProgress(h.year, h.month) < 1
+          return (
+            <div key={`${h.year}-${h.month}`} className="flex-1 h-full flex flex-col justify-end items-center"
+              title={h.hasBudget ? `${MESES[h.month - 1]}: ${Math.round(p * 100)} % del plan variable${running ? ' (en curso)' : ''}` : `${MESES[h.month - 1]}: sin plan`}>
+              {h.hasBudget ? (
+                <div className={`w-full max-w-[28px] rounded-t ${running ? 'border-2 border-dashed border-line-strong' : p > 1 ? 'bg-neg-fill' : 'bg-brand'}`}
+                  style={{ height: `${Math.max(3, (p / maxPct) * 100)}%` }} />
+              ) : (
+                <div className="w-full max-w-[28px] h-[3px] rounded bg-muted" />
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <div className="flex gap-2 mt-1">
+        {history.map(h => <span key={`${h.year}-${h.month}`} className="flex-1 text-center text-[11px] text-ink-500">{MESES_CORTO[h.month - 1]}</span>)}
+      </div>
+      <p className="text-xs text-ink-500 mt-3">
+        Cada barra es el gasto variable de las categorías con presupuesto contra su tope de ese mes. La línea es el 100 %.
+      </p>
+    </section>
+  )
+}
+
+// ---------- Editar el tope de una categoría ----------
+function EditOneSheet({ editing, name, month, onClose, onSave }: {
+  editing: { line: CategoryLine; suggested: number } | null
+  name: string
+  month: number
+  onClose: () => void
+  onSave: (categoryId: string, amount: number, mode: BudgetMode) => Promise<void>
+}) {
+  const [raw, setRaw] = useState('')
+  const [mode, setMode] = useState<BudgetMode>('forward')
+  const [saving, setSaving] = useState(false)
+  const [openedFor, setOpenedFor] = useState<string | null>(null)
+  // Reinicia el formulario cada vez que se abre para otra categoría.
+  if (editing && openedFor !== editing.line.id) {
+    setOpenedFor(editing.line.id)
+    setRaw(editing.suggested ? String(Math.round(editing.suggested)) : '')
+    setMode('forward')
+  }
+  if (!editing && openedFor) setOpenedFor(null)
+
+  const amount = Number(raw) || 0
+  const mes = MESES[month - 1]
+  const l = editing?.line
+
+  async function submit(value: number) {
+    if (!l) return
     setSaving(true)
-    try {
-      for (const cat of categories) {
-        const val = values[cat.id]
-        const existing = budgets.find(b => b.category_id === cat.id)
-        const num = val ? parseFloat(val) : 0
-        if (num > 0) {
-          await upsertBudget({
-            ...(existing ? { id: existing.id } : {}),
-            category_id: cat.id, amount: num, period: 'monthly',
-          })
-        } else if (existing) {
-          await deleteBudget(existing.id)
-        }
-      }
-      toast.success('Presupuestos guardados')
-      onSaved()
-    } catch (e: any) {
-      toast.error(e.message)
-    } finally { setSaving(false) }
+    await onSave(l.id, value, mode)
+    setSaving(false)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-surface w-full max-w-lg rounded-t-2xl sm:rounded-xl shadow-xl max-h-[90dvh] sm:max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-line">
-          <h2 className="font-semibold text-ink-900">Editar presupuestos mensuales</h2>
-          <button onClick={onClose}><X size={18} className="text-ink-500" /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 py-3 divide-y divide-line">
-          {categories.map(c => {
-            const gastoActual = cats.find(x => x.category_id === c.id)?.total || 0
-            return (
-              <div key={c.id} className="flex items-center justify-between py-2.5 gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm text-ink-900">{c.name}</p>
-                  {gastoActual > 0 && (
-                    <p className="text-[11px] text-ink-500">
-                      gastaste {formatCurrency(gastoActual)} este mes
-                    </p>
-                  )}
-                </div>
-                <input
-                  type="number"
-                  value={values[c.id] || ''}
-                  onChange={e => setValues(v => ({ ...v, [c.id]: e.target.value }))}
-                  placeholder="Sin límite"
-                  className="w-28 sm:w-36 flex-shrink-0 border border-line rounded-lg px-3 py-1.5 text-sm text-right outline-none focus:border-brand"
-                />
-              </div>
-            )
-          })}
-        </div>
-        <div className="px-5 py-3 border-t border-line flex gap-2">
-          <button onClick={onClose}
-            className="flex-1 border border-line rounded-lg py-2 text-sm text-ink-700 hover:bg-surface-2">
-            Cancelar
-          </button>
-          <button onClick={save} disabled={saving}
-            className="flex-1 bg-brand hover:bg-brand-hover text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50">
-            {saving ? 'Guardando...' : 'Guardar'}
+    <Sheet open={!!editing} title={name} onRequestClose={onClose}
+      footer={
+        <div className="flex gap-2">
+          {l && l.budget > 0 && (
+            <button type="button" disabled={saving} onClick={() => submit(0)}
+              className="h-12 px-4 rounded-xl border border-line text-sm font-medium text-neg">
+              Quitar
+            </button>
+          )}
+          <button type="button" disabled={saving || amount <= 0} onClick={() => submit(amount)}
+            className="flex-1 h-12 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-semibold disabled:bg-surface-2 disabled:text-ink-500">
+            {saving ? 'Guardando…' : amount > 0 ? `Guardar ${formatCurrency(amount)}` : 'Escribí el tope'}
           </button>
         </div>
-      </div>
-    </div>
+      }>
+      {l && (
+        <div className="pb-4 space-y-4">
+          <label className="block">
+            <span className="block text-xs font-medium text-ink-500 mb-1.5">Tope para gasto variable</span>
+            <input value={raw ? Number(raw).toLocaleString('es-AR') : ''} inputMode="numeric"
+              onChange={e => setRaw(e.target.value.replace(/\D/g, '').slice(0, 12))}
+              placeholder="0" className="num w-full h-12 rounded-xl border border-line px-3 text-xl font-semibold text-ink-900 outline-none focus:border-brand" />
+          </label>
+          <p className="text-sm text-ink-700">
+            En {mes} llevás <b className="num">{formatCurrency(l.variable)}</b>
+            {l.avg3 > 0 && <> y tu promedio es <b className="num">{formatCurrency(l.avg3)}</b></>}.
+            {(l.fixed + l.installments) > 0 && <> Los fijos y cuotas de esta categoría (<span className="num">{formatCurrency(l.fixed + l.installments)}</span>) van aparte.</>}
+          </p>
+          <fieldset>
+            <legend className="block text-xs font-medium text-ink-500 mb-1.5">Aplicar</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {([['forward', `Desde ${mes}`], ['only', `Solo ${mes}`]] as const).map(([v, label]) => (
+                <button key={v} type="button" onClick={() => setMode(v)} aria-pressed={mode === v}
+                  className={`h-11 rounded-xl border text-sm ${mode === v ? 'bg-brand-soft border-brand text-brand-ink font-medium' : 'border-line text-ink-700'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-ink-500 mt-1.5">
+              {mode === 'forward' ? 'Rige este mes y los siguientes. Los meses anteriores no cambian.' : 'Solo este mes; el siguiente vuelve al tope de siempre.'}
+            </p>
+          </fieldset>
+        </div>
+      )}
+    </Sheet>
   )
 }
