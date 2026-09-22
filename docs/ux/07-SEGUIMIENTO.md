@@ -1,7 +1,7 @@
 # Seguimiento — cómo evolucionan ingresos, gastos y plan
 
-Pantalla nueva que reemplaza a `/historico`. Propuesta del 2026-09-22; **pendiente de
-aprobación**. Prototipo navegable (claro y oscuro): Artifact privado
+Pantalla nueva que reemplaza a `/historico`. Aprobada e implementada el 2026-09-22
+(`src/app/seguimiento`, `src/components/seguimiento`, `src/lib/seguimiento.ts`). Prototipo navegable (claro y oscuro): Artifact privado
 https://claude.ai/artifact/7CU77kB1usdLkro6EebqZJ
 
 ## Para qué
@@ -38,6 +38,8 @@ Resumen y Cuentas queda en "Más"). En escritorio reemplaza a Histórico.
 ## Datos
 
 - `get_monthly_evolution(p_months)` ya existe (ingresos/gastos por mes).
-- Categoría × mes: una RPC nueva `get_category_evolution(p_months)` que agrupe por categoría raíz
-  y mes, en vez de N llamadas a `get_expenses_by_category`.
+- Implementado sin SQL nuevo: `getTransactionsLite` trae 24 meses (5 columnas, paginado de a
+  1000) y `buildSeries` arma meses y categoría × mes en memoria. Si algún día pesa, pasar a una
+  RPC `get_category_evolution(p_months)`.
+- "Qué cambió" no repite el ahorro contra la meta (ya está en su tarjeta).
 - Plan por mes: sale del modelo de la etapa 4 (`05-PRESUPUESTO.md`).

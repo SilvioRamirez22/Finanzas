@@ -118,14 +118,14 @@ export default function AppProvider({ children }: { children: React.ReactNode })
     return (
       <div className="min-h-[100dvh] flex items-center justify-center p-6">
         <div className="text-center max-w-xs">
-          <p className="text-sm text-gray-700 font-medium">No pudimos abrir tu sesión</p>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-ink-700 font-medium">No pudimos abrir tu sesión</p>
+          <p className="text-sm text-ink-500 mt-2">
             El navegador no está guardando la sesión. Suele pasar en modo
             incógnito o con las cookies bloqueadas para este sitio.
           </p>
           <a
             href="/auth/login"
-            className="inline-block mt-5 bg-emerald-600 text-white rounded-xl px-5 py-2.5 text-sm font-medium"
+            className="inline-block mt-5 bg-brand text-white rounded-xl px-5 py-2.5 text-sm font-medium"
           >
             Ir al login
           </a>
@@ -138,8 +138,8 @@ export default function AppProvider({ children }: { children: React.ReactNode })
     return (
       <div className="min-h-[100dvh] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-400">Cargando...</p>
+          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-ink-500">Cargando...</p>
         </div>
       </div>
     )

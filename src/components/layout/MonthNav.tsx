@@ -25,17 +25,17 @@ export default function MonthNav({ value, onChange, compact = false }: {
     : `${MESES[value.month - 1]} ${value.year}`
 
   return (
-    <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-white">
+    <div className="flex items-center border border-line rounded-lg overflow-hidden bg-surface">
       <button
         onClick={() => shift(-1)}
         aria-label="Mes anterior"
-        className={`text-gray-400 hover:text-gray-700 active:bg-gray-100 hover:bg-gray-50 transition-colors ${
+        className={`text-ink-500 hover:text-ink-700 active:bg-muted hover:bg-surface-2 transition-colors ${
           compact ? 'px-2 py-2 leading-none' : 'px-2.5 py-1.5'
         }`}
       >
         ‹
       </button>
-      <span className={`font-medium text-gray-800 text-center whitespace-nowrap ${
+      <span className={`font-medium text-ink-900 text-center whitespace-nowrap ${
         compact ? 'px-1.5 py-1.5 text-xs min-w-[58px]' : 'px-4 py-1.5 text-sm min-w-[92px]'
       }`}>
         {label}
@@ -43,7 +43,7 @@ export default function MonthNav({ value, onChange, compact = false }: {
       <button
         onClick={() => shift(1)}
         aria-label="Mes siguiente"
-        className={`text-gray-400 hover:text-gray-700 active:bg-gray-100 hover:bg-gray-50 transition-colors ${
+        className={`text-ink-500 hover:text-ink-700 active:bg-muted hover:bg-surface-2 transition-colors ${
           compact ? 'px-2 py-2 leading-none' : 'px-2.5 py-1.5'
         }`}
       >

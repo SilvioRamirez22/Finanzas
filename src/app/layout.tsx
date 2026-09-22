@@ -19,7 +19,11 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#059669',
+  // Color de la barra del navegador: igual al header en cada modo.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#FFFFFF' },
+    { media: '(prefers-color-scheme: dark)', color: '#1C1E25' },
+  ],
   width: 'device-width',
   initialScale: 1,
   // maximumScale: 1 impedia hacer zoom con los dedos: mala accesibilidad y,

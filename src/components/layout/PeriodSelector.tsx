@@ -37,13 +37,13 @@ export default function PeriodSelector({ period, onChange, availableYears }: Per
   const yearDisabled = period.range === 'all'
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-3 mb-4">
+    <div className="bg-surface rounded-2xl border border-line p-3 mb-4">
       <div className="flex items-center gap-2 flex-wrap">
         {/* Tipo de rango */}
         <select
           value={period.range}
           onChange={e => onChange({ ...period, range: e.target.value as RangeType })}
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white font-medium text-gray-700 outline-none focus:border-emerald-400"
+          className="border border-line rounded-lg px-3 py-1.5 text-sm bg-surface font-medium text-ink-700 outline-none focus:border-brand"
         >
           {RANGE_LABELS.map(r => (
             <option key={r.value} value={r.value}>{r.label}</option>
@@ -55,14 +55,14 @@ export default function PeriodSelector({ period, onChange, availableYears }: Per
           value={period.year}
           disabled={yearDisabled}
           onChange={e => onChange({ ...period, year: parseInt(e.target.value) })}
-          className={`border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white font-medium outline-none focus:border-emerald-400 ${
-            yearDisabled ? 'opacity-40 cursor-not-allowed' : 'text-gray-700'
+          className={`border border-line rounded-lg px-3 py-1.5 text-sm bg-surface font-medium outline-none focus:border-brand ${
+            yearDisabled ? 'opacity-40 cursor-not-allowed' : 'text-ink-700'
           }`}
         >
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
 
-        <div className="w-px h-6 bg-gray-200 mx-1" />
+        <div className="w-px h-6 bg-line mx-1" />
 
         {/* Pastillas de meses */}
         <div className={`flex items-center gap-1 flex-wrap ${monthsDisabled ? 'opacity-30 pointer-events-none' : ''}`}>
@@ -75,8 +75,8 @@ export default function PeriodSelector({ period, onChange, availableYears }: Per
                 onClick={() => onChange({ ...period, month: mNum })}
                 className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                   active
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
+                    ? 'bg-brand text-white'
+                    : 'bg-surface border border-line text-ink-500 hover:bg-surface-2'
                 }`}
               >
                 {m}

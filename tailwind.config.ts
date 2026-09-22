@@ -16,6 +16,7 @@ const config: Config = {
         bg: 'var(--bg)',
         surface: 'var(--surface)',
         'surface-2': 'var(--surface-2)',
+        muted: 'var(--muted)',
         line: 'var(--border)',
         'line-strong': 'var(--border-strong)',
         ink: {
@@ -26,21 +27,14 @@ const config: Config = {
         },
         brand: {
           DEFAULT: 'var(--brand)',
+          hover: 'var(--brand-hover)',
           ink: 'var(--brand-ink)',
           soft: 'var(--brand-soft)',
         },
         pos: { DEFAULT: 'var(--pos)', soft: 'var(--pos-soft)' },
-        neg: { DEFAULT: 'var(--neg)', soft: 'var(--neg-soft)' },
+        neg: { DEFAULT: 'var(--neg)', soft: 'var(--neg-soft)', fill: 'var(--neg-fill)' },
         warn: { DEFAULT: 'var(--warn)', soft: 'var(--warn-soft)' },
-        info: 'var(--info)',
-        emerald: {
-          50: '#ecfdf5',
-          100: '#d1fae5',
-          400: '#34d399',
-          500: '#10b981',
-          600: '#059669',
-          700: '#047857',
-        },
+        info: { DEFAULT: 'var(--info)', soft: 'var(--info-soft)' },
       },
       borderRadius: {
         '2xl': '1rem',

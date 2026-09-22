@@ -496,7 +496,7 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
           Seguir editando
         </button>
         <button type="button" onClick={onClose}
-          className="h-12 rounded-xl bg-neg text-white text-sm font-medium">
+          className="h-12 rounded-xl bg-neg-fill text-white text-sm font-medium">
           Descartar
         </button>
       </div>

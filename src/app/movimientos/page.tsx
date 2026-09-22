@@ -163,22 +163,22 @@ export default function MovimientosPage() {
           value={q}
           onChange={e => setQ(e.target.value)}
           placeholder="Buscar descripción, monto o comercio"
-          className="w-full md:flex-1 md:min-w-[220px] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500 bg-white"
+          className="w-full md:flex-1 md:min-w-[220px] border border-line rounded-lg px-3 py-2 text-sm outline-none focus:border-brand bg-surface"
         />
         <div className="grid grid-cols-2 gap-2 md:flex md:items-center md:flex-wrap">
           <select value={catFilter} onChange={e => setCatFilter(e.target.value)}
-            className="min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-emerald-500">
+            className="min-w-0 border border-line rounded-lg px-3 py-2 text-sm bg-surface outline-none focus:border-brand">
             <option value="">Todas las categorías</option>
             {rootCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <select value={accFilter} onChange={e => setAccFilter(e.target.value)}
-            className="min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:border-emerald-500">
+            className="min-w-0 border border-line rounded-lg px-3 py-2 text-sm bg-surface outline-none focus:border-brand">
             <option value="">Todas las cuentas</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
           <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as TypeFilter)}
             className={`min-w-0 border rounded-lg px-3 py-2 text-sm outline-none ${
-              typeFilter !== 'all' ? 'border-emerald-500 text-emerald-800 bg-emerald-50' : 'border-gray-200 bg-white'
+              typeFilter !== 'all' ? 'border-brand text-pos bg-brand-soft' : 'border-line bg-surface'
             }`}>
             <option value="all">Todo</option>
             <option value="expense">Solo gastos</option>
@@ -187,7 +187,7 @@ export default function MovimientosPage() {
           </select>
           <select value={amountFilter} onChange={e => setAmountFilter(e.target.value as AmountFilter)}
             className={`min-w-0 border rounded-lg px-3 py-2 text-sm outline-none ${
-              amountFilter !== 'any' ? 'border-emerald-500 text-emerald-800 bg-emerald-50' : 'border-gray-200 bg-white'
+              amountFilter !== 'any' ? 'border-brand text-pos bg-brand-soft' : 'border-line bg-surface'
             }`}>
             <option value="any">Cualquier monto</option>
             <option value="gt50">Más de $50.000</option>
@@ -197,7 +197,7 @@ export default function MovimientosPage() {
           {/* En el celular ya está el botón "+" flotante del layout. */}
           <button
             onClick={() => setQuickAddOpen(true)}
-            className="hidden md:block bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="hidden md:block bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             + Movimiento
           </button>
@@ -205,49 +205,48 @@ export default function MovimientosPage() {
       </div>
 
       {/* Totales de la selección */}
-      <div className="bg-white rounded-xl border border-gray-200 px-4 md:px-5 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div className="bg-surface rounded-2xl border border-line px-4 md:px-5 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         {/* gap-8 fijo hacia los lados no entraba en 360px: en el celular van
             apilados, con ingresos y gastos en dos columnas. */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-8">
           <div>
-            <p className="text-[11px] text-gray-400">Resultado de la selección</p>
-            <p className={`text-xl font-semibold break-words ${totals.net >= 0 ? 'text-emerald-800' : 'text-red-600'}`}
-               style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+            <p className="text-[11px] text-ink-500">Resultado de la selección</p>
+            <p className={`text-xl font-semibold break-words ${totals.net >= 0 ? 'text-pos' : 'text-neg'} num`}>
               {totals.net >= 0 ? '+' : '−'}$ {formatCurrency(Math.abs(totals.net)).replace(/^\$\s?/, '')}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-8">
             <div>
-              <p className="text-[11px] text-gray-400">Ingresos</p>
-              <p className="text-base text-gray-900 break-words" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                {formatCurrency(totals.inc)} <span className="text-gray-400 text-xs">· {totals.incN}</span>
+              <p className="text-[11px] text-ink-500">Ingresos</p>
+              <p className="text-base text-ink-900 break-words num">
+                {formatCurrency(totals.inc)} <span className="text-ink-500 text-xs">· {totals.incN}</span>
               </p>
             </div>
             <div>
-              <p className="text-[11px] text-gray-400">Gastos</p>
-              <p className="text-base text-gray-900 break-words" style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                {formatCurrency(totals.exp)} <span className="text-gray-400 text-xs">· {totals.expN}</span>
+              <p className="text-[11px] text-ink-500">Gastos</p>
+              <p className="text-base text-ink-900 break-words num">
+                {formatCurrency(totals.exp)} <span className="text-ink-500 text-xs">· {totals.expN}</span>
               </p>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={() => setGrouped(!grouped)}
-            className="flex-1 md:flex-none border border-gray-200 rounded-lg px-3 py-2 md:py-1.5 text-sm text-gray-600 hover:bg-gray-50">
+            className="flex-1 md:flex-none border border-line rounded-lg px-3 py-2 md:py-1.5 text-sm text-ink-700 hover:bg-surface-2">
             {grouped ? 'Agrupar por día' : 'Lista simple'}
           </button>
           <button onClick={() => exportTransactionsToExcel(filtered)}
-            className="flex-1 md:flex-none border border-gray-200 rounded-lg px-3 py-2 md:py-1.5 text-sm text-gray-600 hover:bg-gray-50">
+            className="flex-1 md:flex-none border border-line rounded-lg px-3 py-2 md:py-1.5 text-sm text-ink-700 hover:bg-surface-2">
             Exportar
           </button>
         </div>
       </div>
 
       {/* Tabla */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-line overflow-hidden">
         {/* Encabezado: solo en escritorio. En el celular cada movimiento se
             muestra como tarjeta de dos líneas, sin columnas. */}
-        <div className="hidden md:flex items-center gap-3 px-5 py-2.5 bg-gray-50 border-b border-gray-200 text-[11px] tracking-wide text-gray-400 font-medium">
+        <div className="hidden md:flex items-center gap-3 px-5 py-2.5 bg-surface-2 border-b border-line text-[11px] tracking-wide text-ink-500 font-medium">
           <span className="w-6" />
           <span className="flex-1">DESCRIPCIÓN</span>
           <span className="w-36">CATEGORÍA</span>
@@ -261,7 +260,7 @@ export default function MovimientosPage() {
         ) : loading ? (
           <RowsSkeleton />
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-gray-400 py-10 text-center">
+          <p className="text-sm text-ink-500 py-10 text-center">
             Sin movimientos con estos filtros
           </p>
         ) : grouped ? (
@@ -270,10 +269,9 @@ export default function MovimientosPage() {
               s + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0)
             return (
               <div key={date}>
-                <div className="flex items-center justify-between px-4 md:px-5 py-2 bg-gray-50/70 border-b border-gray-100">
-                  <span className="text-xs text-gray-500">{dayLabel(date)}</span>
-                  <span className={`text-xs ${dayTotal >= 0 ? 'text-emerald-700' : 'text-gray-500'}`}
-                        style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                <div className="flex items-center justify-between px-4 md:px-5 py-2 bg-surface-2 border-b border-line">
+                  <span className="text-xs text-ink-500">{dayLabel(date)}</span>
+                  <span className={`text-xs ${dayTotal >= 0 ? 'text-pos' : 'text-ink-500'} num`}>
                     {dayTotal >= 0 ? '+' : '−'}{formatCurrency(Math.abs(dayTotal))}
                   </span>
                 </div>
@@ -289,7 +287,7 @@ export default function MovimientosPage() {
       </div>
 
       {!loading && filtered.length > 0 && (
-        <p className="text-xs text-gray-400 text-center">
+        <p className="text-xs text-ink-500 text-center">
           {filtered.length} movimientos · {MESES[month - 1]} {year}
         </p>
       )}
@@ -309,7 +307,7 @@ export default function MovimientosPage() {
               Solo esta cuota
             </button>
             <button onClick={() => remove(deletingGroup, 'group')}
-              className="w-full h-12 rounded-xl bg-neg text-white text-sm font-medium">
+              className="w-full h-12 rounded-xl bg-neg-fill text-white text-sm font-medium">
               Las {deletingGroup.installments_total} cuotas
             </button>
           </div>
@@ -329,11 +327,11 @@ export default function MovimientosPage() {
 function RowsSkeleton() {
   return (
     <div aria-hidden="true">
-      <div className="px-4 md:px-5 py-2 bg-gray-50/70 border-b border-gray-100">
+      <div className="px-4 md:px-5 py-2 bg-surface-2 border-b border-line">
         <SkeletonLine className="h-3 w-32" />
       </div>
       {Array.from({ length: 6 }, (_, i) => (
-        <div key={i} className="flex items-center gap-3 px-4 md:px-5 py-3 border-b border-gray-100">
+        <div key={i} className="flex items-center gap-3 px-4 md:px-5 py-3 border-b border-line">
           <SkeletonLine className="w-5 h-5 flex-shrink-0" />
           <SkeletonLine className={`h-4 ${i % 2 ? 'w-1/3' : 'w-1/2'}`} />
           <SkeletonLine className="h-4 w-20 ml-auto" />
@@ -360,21 +358,20 @@ function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
       {/* ---------- Celular ---------- */}
       {/* Tocar el movimiento abre el formulario para corregirlo. */}
       <div onClick={onEdit} role="button" aria-label={`Editar ${t.description}`}
-        className="md:hidden flex items-start gap-3 px-4 py-3 border-b border-gray-100 active:bg-gray-50 cursor-pointer">
+        className="md:hidden flex items-start gap-3 px-4 py-3 border-b border-line active:bg-surface-2 cursor-pointer">
         <div className="w-5 h-5 rounded flex-shrink-0 mt-0.5"
           style={{ background: (t.category_color || '#D1D5DB') + '40' }} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-2">
-            <p className="text-sm text-gray-800 truncate">{t.description}</p>
-            <span className={`text-sm flex-shrink-0 ${isIncome ? 'text-emerald-700' : 'text-gray-900'}`}
-                  style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+            <p className="text-sm text-ink-900 truncate">{t.description}</p>
+            <span className={`text-sm flex-shrink-0 ${isIncome ? 'text-pos' : 'text-ink-900'} num`}>
               {isIncome ? '+' : '−'}{formatCurrency(Number(t.amount))}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-400 min-w-0">
+          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-ink-500 min-w-0">
             {t.category_name && (
-              <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 truncate max-w-[45%]">
+              <span className="px-1.5 py-0.5 rounded bg-muted text-ink-700 truncate max-w-[45%]">
                 {t.category_name}
               </span>
             )}
@@ -387,7 +384,7 @@ function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
         {/* En touch no existe el hover, así que los botones se ven siempre. */}
         {canBeRecurring && (
           <button onClick={e => { e.stopPropagation(); onToggleRecurring() }} aria-label={recurringLabel} title={recurringLabel}
-            className={`px-1 flex-shrink-0 mt-0.5 ${t.is_recurring ? 'text-indigo-600' : 'text-gray-300 active:text-indigo-600'}`}>
+            className={`px-1 flex-shrink-0 mt-0.5 ${t.is_recurring ? 'text-info' : 'text-ink-500 active:text-info'}`}>
             <Repeat size={14} />
           </button>
         )}
@@ -399,36 +396,35 @@ function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
 
       {/* ---------- Escritorio ---------- */}
       <div onClick={onEdit} title="Click para editar"
-        className="hidden md:flex items-center gap-3 px-5 py-2.5 border-b border-gray-100 hover:bg-gray-50/60 group transition-colors cursor-pointer">
+        className="hidden md:flex items-center gap-3 px-5 py-2.5 border-b border-line hover:bg-surface-2 group transition-colors cursor-pointer">
         <div className="w-6 flex-shrink-0">
           <div className="w-5 h-5 rounded"
             style={{ background: (t.category_color || '#D1D5DB') + '40' }} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            <p className="text-sm text-gray-800 truncate">{t.description}</p>
+            <p className="text-sm text-ink-900 truncate">{t.description}</p>
             {t.is_recurring && <RecurringBadge />}
           </div>
-          {showDate && <p className="text-[11px] text-gray-400">{t.date}</p>}
+          {showDate && <p className="text-[11px] text-ink-500">{t.date}</p>}
         </div>
         <div className="w-36 flex-shrink-0">
           {t.category_name && (
-            <span className="inline-block px-2 py-0.5 rounded text-xs text-gray-600 bg-gray-100 truncate max-w-full">
+            <span className="inline-block px-2 py-0.5 rounded text-xs text-ink-700 bg-muted truncate max-w-full">
               {t.category_name}
             </span>
           )}
         </div>
-        <span className="w-32 text-sm text-gray-500 truncate flex-shrink-0">{t.account_name}</span>
-        <span className={`w-32 text-right text-sm flex-shrink-0 ${isIncome ? 'text-emerald-700' : 'text-gray-900'}`}
-              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+        <span className="w-32 text-sm text-ink-500 truncate flex-shrink-0">{t.account_name}</span>
+        <span className={`w-32 text-right text-sm flex-shrink-0 ${isIncome ? 'text-pos' : 'text-ink-900'} num`}>
           {isIncome ? '+' : '−'}{formatCurrency(Number(t.amount))}
         </span>
         <div className="w-14 flex items-center justify-end gap-1 flex-shrink-0">
           {canBeRecurring && (
             <button onClick={e => { e.stopPropagation(); onToggleRecurring() }} aria-label={recurringLabel} title={recurringLabel}
               className={`p-1 transition-all ${t.is_recurring
-                ? 'text-indigo-600 hover:text-indigo-800'
-                : 'text-gray-300 hover:text-indigo-600 opacity-0 group-hover:opacity-100'}`}>
+                ? 'text-info hover:text-info'
+                : 'text-ink-500 hover:text-info opacity-0 group-hover:opacity-100'}`}>
               <Repeat size={14} />
             </button>
           )}

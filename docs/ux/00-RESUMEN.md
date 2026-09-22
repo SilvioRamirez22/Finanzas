@@ -96,9 +96,12 @@ el atajo "Nuevo gasto" de la pantalla de inicio, que no hace nada.
 - P3/P4: usar las RPC que ya existen y matar las 6 consultas en serie de presupuestos.
 
 ### Etapa 2 — Una sola pasada visual y de accesibilidad
-◐ Tokens de color en `globals.css` + `tailwind.config` (el borde se llama `line`, para no chocar
-con la utilidad `border` de Tailwind), foco visible global y `prefers-reduced-motion`. Los usan la
-hoja de carga y los estados; falta migrar las pantallas y activar el modo oscuro.
+✅ (2026-09-22) Toda la app usa los tokens de `globals.css` (el borde se llama `line`, para no
+chocar con la utilidad `border` de Tailwind): cero clases `gray-*`/`emerald-*`/`red-*`, montos
+con `.num`, tarjetas con un solo radio. **Modo oscuro** siguiendo al sistema (el override manual
+necesitaría guardar la preferencia en el perfil de Supabase: pendiente). Foco visible global,
+`prefers-reduced-motion`, íconos de categoría con lucide (se borró el `@import` de Tabler).
+Pendiente de esta etapa: áreas táctiles de 44 px en todas las filas y las primitivas `Card`/`Money`.
 - Tokens en `globals.css` + `tailwind.config` (`02`).
 - `focus-visible` global, escala de grises con contraste, áreas táctiles de 44 px.
 - X6: acciones visibles en táctil en cuentas y categorías.
@@ -117,6 +120,11 @@ dispositivos); sin cola offline (guardaría datos en el navegador) y sin actuali
 ### Etapa 4 — Presupuesto (`05`)
 Fase 0 (modelo por mes + las dos RPC) → Fase 1 (vista del mes con ritmo, editor con "sin
 asignar") → Fase 2 (asistente, fijos y cuotas comprometidos, historial correcto).
+
+### Seguimiento (`07`)
+✅ (2026-09-22) `/seguimiento` reemplaza a `/historico` (que redirige). En el celular va en la barra
+de abajo en lugar de Cuentas, que pasa a "Más". Sin SQL nuevo: trae 24 meses de movimientos
+paginados y calcula en memoria. "Gasto contra el plan" espera al presupuesto por mes (etapa 4).
 
 ### Etapa 5 — Vista global (`04`)
 Reordenar el dashboard (disponible primero, tarjeta "Atención"), barra de mes con swipe, un solo

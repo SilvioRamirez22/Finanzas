@@ -56,12 +56,12 @@ export default function BuscarPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-xl font-semibold text-gray-900 mb-4">Buscar</h1>
+      <h1 className="text-xl font-semibold text-ink-900 mb-4">Buscar</h1>
 
       {/* Barra de búsqueda */}
       <div className="flex gap-2 mb-3">
-        <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-3 focus-within:border-emerald-400 transition-colors">
-          <Search size={16} className="text-gray-400 flex-shrink-0" />
+        <div className="flex-1 flex items-center gap-2 bg-surface border border-line rounded-xl px-4 py-3 focus-within:border-brand transition-colors">
+          <Search size={16} className="text-ink-500 flex-shrink-0" />
           <input
             type="text"
             value={filters.query || ''}
@@ -71,14 +71,14 @@ export default function BuscarPage() {
           />
           {filters.query && (
             <button onClick={() => handleQueryChange('')}>
-              <X size={14} className="text-gray-400 hover:text-gray-600" />
+              <X size={14} className="text-ink-500 hover:text-ink-700" />
             </button>
           )}
         </div>
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
           className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border transition-colors ${
-            showAdvanced ? 'bg-gray-100 border-gray-300' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+            showAdvanced ? 'bg-muted border-line-strong' : 'border-line text-ink-500 hover:bg-surface-2'
           }`}
         >
           <SlidersHorizontal size={14} />
@@ -88,13 +88,13 @@ export default function BuscarPage() {
 
       {/* Filtros avanzados */}
       {showAdvanced && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 space-y-3">
+        <div className="bg-surface rounded-2xl border border-line p-4 mb-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Tipo</label>
+              <label className="text-xs text-ink-500 mb-1 block">Tipo</label>
               <select value={filters.type || ''}
                 onChange={e => handleFilterChange('type', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white">
+                className="w-full border border-line rounded-lg px-2 py-2 text-sm bg-surface">
                 <option value="">Todos</option>
                 <option value="income">Ingresos</option>
                 <option value="expense">Gastos</option>
@@ -102,62 +102,62 @@ export default function BuscarPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Cuenta</label>
+              <label className="text-xs text-ink-500 mb-1 block">Cuenta</label>
               <select value={filters.account_id || ''}
                 onChange={e => handleFilterChange('account_id', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white">
+                className="w-full border border-line rounded-lg px-2 py-2 text-sm bg-surface">
                 <option value="">Todas</option>
                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Categoría</label>
+              <label className="text-xs text-ink-500 mb-1 block">Categoría</label>
               <select value={filters.category_id || ''}
                 onChange={e => handleFilterChange('category_id', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white">
+                className="w-full border border-line rounded-lg px-2 py-2 text-sm bg-surface">
                 <option value="">Todas</option>
                 {categories.filter(c => !c.parent_id).map(c =>
                   <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Medio de pago</label>
+              <label className="text-xs text-ink-500 mb-1 block">Medio de pago</label>
               <select value={filters.payment_method_id || ''}
                 onChange={e => handleFilterChange('payment_method_id', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white">
+                className="w-full border border-line rounded-lg px-2 py-2 text-sm bg-surface">
                 <option value="">Todos</option>
                 {paymentMethods.map(pm => <option key={pm.id} value={pm.id}>{pm.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Desde</label>
+              <label className="text-xs text-ink-500 mb-1 block">Desde</label>
               <input type="date" value={filters.date_from || ''}
                 onChange={e => handleFilterChange('date_from', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm" />
+                className="w-full border border-line rounded-lg px-2 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Hasta</label>
+              <label className="text-xs text-ink-500 mb-1 block">Hasta</label>
               <input type="date" value={filters.date_to || ''}
                 onChange={e => handleFilterChange('date_to', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm" />
+                className="w-full border border-line rounded-lg px-2 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Monto mínimo</label>
+              <label className="text-xs text-ink-500 mb-1 block">Monto mínimo</label>
               <input type="number" value={filters.amount_min || ''}
                 onChange={e => handleFilterChange('amount_min', e.target.value)}
                 placeholder="0"
-                className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm" />
+                className="w-full border border-line rounded-lg px-2 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Monto máximo</label>
+              <label className="text-xs text-ink-500 mb-1 block">Monto máximo</label>
               <input type="number" value={filters.amount_max || ''}
                 onChange={e => handleFilterChange('amount_max', e.target.value)}
                 placeholder="∞"
-                className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm" />
+                className="w-full border border-line rounded-lg px-2 py-2 text-sm" />
             </div>
           </div>
           <button onClick={clearAll}
-            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
+            className="text-xs text-ink-500 hover:text-ink-700 flex items-center gap-1">
             <X size={12} /> Limpiar todo
           </button>
         </div>
@@ -165,14 +165,14 @@ export default function BuscarPage() {
 
       {/* Resultados */}
       {loading && (
-        <div className="text-center py-8 text-gray-400 text-sm">Buscando...</div>
+        <div className="text-center py-8 text-ink-500 text-sm">Buscando...</div>
       )}
 
       {searched && !loading && (
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm text-gray-500">{results.length} resultado{results.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-ink-500">{results.length} resultado{results.length !== 1 ? 's' : ''}</p>
           {results.length > 0 && (
-            <p className={`text-sm font-medium ${totalAmount >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+            <p className={`text-sm font-medium ${totalAmount >= 0 ? 'text-pos' : 'text-neg'}`}>
               {totalAmount >= 0 ? '+' : ''}{formatCurrency(totalAmount, 'ARS', true)}
             </p>
           )}
@@ -183,14 +183,14 @@ export default function BuscarPage() {
         <div className="space-y-1.5">
           {results.map(t => {
             const sign = t.type === 'expense' ? '-' : t.type === 'income' ? '+' : '↔'
-            const amtColor = t.type === 'expense' ? 'text-red-500' : t.type === 'income' ? 'text-emerald-600' : 'text-blue-500'
+            const amtColor = t.type === 'expense' ? 'text-neg' : t.type === 'income' ? 'text-pos' : 'text-info'
             return (
-              <div key={t.id} className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 px-3 py-2.5">
+              <div key={t.id} className="flex items-center gap-3 bg-surface rounded-2xl border border-line px-3 py-2.5">
                 <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ background: t.category_color || '#D1D5DB' }} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800 truncate">{t.description}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-sm text-ink-900 truncate">{t.description}</p>
+                  <p className="text-xs text-ink-500 mt-0.5">
                     {formatDate(t.date)} · {t.account_name}
                     {t.category_name && ` · ${t.category_name}`}
                   </p>
@@ -205,14 +205,14 @@ export default function BuscarPage() {
       )}
 
       {searched && !loading && results.length === 0 && (
-        <div className="text-center py-12 text-gray-400">
-          <Search size={32} className="mx-auto mb-2 text-gray-200" />
+        <div className="text-center py-12 text-ink-500">
+          <Search size={32} className="mx-auto mb-2 text-ink-300" />
           <p className="text-sm">Sin resultados para esta búsqueda</p>
         </div>
       )}
 
       {!searched && !loading && (
-        <div className="text-center py-12 text-gray-300">
+        <div className="text-center py-12 text-ink-500">
           <Search size={40} className="mx-auto mb-2" />
           <p className="text-sm">Escribí para buscar movimientos</p>
         </div>

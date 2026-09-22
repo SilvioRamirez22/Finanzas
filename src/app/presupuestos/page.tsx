@@ -93,39 +93,38 @@ export default function PresupuestosPage() {
       {/* IZQUIERDA */}
       <div className="space-y-4">
         {/* Presupuesto usado */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+        <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
           <div className="flex items-start justify-between gap-3 flex-wrap">
-            <p className="text-[11px] tracking-wide text-gray-400 font-medium">PRESUPUESTO USADO</p>
+            <p className="text-[11px] tracking-wide text-ink-500 font-medium">PRESUPUESTO USADO</p>
             <button onClick={() => setEditing(true)}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
+              className="border border-line rounded-lg px-3 py-1.5 text-sm text-ink-700 hover:bg-surface-2">
               Editar presupuestos
             </button>
           </div>
           {totalBudget === 0 ? (
             <div className="py-6">
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-ink-500">
                 Todavía no definiste presupuestos. Tocá <b>Editar presupuestos</b> para asignar un monto mensual por categoría.
               </p>
             </div>
           ) : (
             <>
               <div className="flex items-baseline gap-3 mt-1">
-                <span className="text-3xl md:text-4xl font-semibold text-gray-900 tracking-tight">
+                <span className="text-3xl md:text-4xl font-semibold text-ink-900 tracking-tight">
                   {globalPct.toFixed(0)}%
                 </span>
-                <span className="text-sm text-gray-500"
-                      style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                <span className="text-sm text-ink-500 num">
                   {formatCurrency(totalSpent)} de {formatCurrency(totalBudget)}
                 </span>
               </div>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-ink-500 mt-1">
                 {totalSpent <= totalBudget
-                  ? <>Te sobraron <b className="text-emerald-800">{formatCurrency(totalBudget - totalSpent)}</b></>
-                  : <>Te pasaste por <b className="text-red-600">{formatCurrency(totalSpent - totalBudget)}</b></>}
+                  ? <>Te sobraron <b className="text-pos">{formatCurrency(totalBudget - totalSpent)}</b></>
+                  : <>Te pasaste por <b className="text-neg">{formatCurrency(totalSpent - totalBudget)}</b></>}
                 {overCount > 0 && <> · {overCount} {overCount === 1 ? 'categoría se pasó' : 'categorías se pasaron'}</>}
               </p>
-              <div className="mt-4 h-2 rounded-full bg-gray-100 overflow-hidden">
-                <div className={`h-full rounded-full ${globalPct > 100 ? 'bg-red-600' : 'bg-emerald-700'}`}
+              <div className="mt-4 h-2 rounded-full bg-muted overflow-hidden">
+                <div className={`h-full rounded-full ${globalPct > 100 ? 'bg-neg-fill' : 'bg-brand'}`}
                   style={{ width: `${Math.min(globalPct, 100)}%` }} />
               </div>
             </>
@@ -133,15 +132,15 @@ export default function PresupuestosPage() {
         </div>
 
         {/* Por categoría */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+        <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-900">Por categoría</h3>
-            <span className="text-xs text-gray-400">Ordenado por desvío</span>
+            <h3 className="text-sm font-semibold text-ink-900">Por categoría</h3>
+            <span className="text-xs text-ink-500">Ordenado por desvío</span>
           </div>
           {rows.length === 0 ? (
-            <p className="text-sm text-gray-300 py-8 text-center">Sin presupuestos definidos</p>
+            <p className="text-sm text-ink-500 py-8 text-center">Sin presupuestos definidos</p>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-line">
               {rows.map(r => {
                 const over = r.pct > 100
                 const warn = r.pct > 90
@@ -150,22 +149,20 @@ export default function PresupuestosPage() {
                   // tiene un celular. Acá la barra pasa a una línea propia.
                   <div key={r.budget.id} className="py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
                     <div className="order-1 flex-1 min-w-0 md:flex-none md:w-40">
-                      <p className="text-sm text-gray-800 truncate">{r.name}</p>
-                      <p className="text-[11px] text-gray-400"
-                         style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                      <p className="text-sm text-ink-900 truncate">{r.name}</p>
+                      <p className="text-[11px] text-ink-500 num">
                         {formatCurrency(r.spent)} / {formatCurrency(r.amount)}
                       </p>
                     </div>
-                    <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-gray-100 rounded-sm overflow-hidden relative">
-                      <div className={`h-full ${over ? 'bg-red-600' : warn ? 'bg-amber-500' : 'bg-emerald-700'}`}
+                    <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-muted rounded-sm overflow-hidden relative">
+                      <div className={`h-full ${over ? 'bg-neg-fill' : warn ? 'bg-warn' : 'bg-brand'}`}
                         style={{ width: `${Math.min(r.pct, 100)}%` }} />
-                      <div className="absolute top-0 bottom-0 w-px bg-gray-400" style={{ left: '100%' }} />
+                      <div className="absolute top-0 bottom-0 w-px bg-ink-300" style={{ left: '100%' }} />
                     </div>
-                    <span className={`order-2 md:order-3 w-12 md:w-14 text-right text-sm flex-shrink-0 ${over ? 'text-red-600' : warn ? 'text-amber-600' : 'text-emerald-700'}`}>
+                    <span className={`order-2 md:order-3 w-12 md:w-14 text-right text-sm flex-shrink-0 ${over ? 'text-neg' : warn ? 'text-warn' : 'text-pos'}`}>
                       {r.pct.toFixed(0)}%
                     </span>
-                    <span className={`order-3 md:order-4 text-right text-xs md:text-sm flex-shrink-0 md:w-28 ${over ? 'text-red-600' : 'text-gray-500'}`}
-                          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                    <span className={`order-3 md:order-4 text-right text-xs md:text-sm flex-shrink-0 md:w-28 ${over ? 'text-neg' : 'text-ink-500'} num`}>
                       {over ? `+${formatCurrency(r.diff)}` : `${formatCurrency(-r.diff)} libre`}
                     </span>
                   </div>
@@ -177,10 +174,9 @@ export default function PresupuestosPage() {
 
         {/* Sin presupuesto */}
         {noBudget.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-            <h3 className="text-sm font-semibold text-gray-900">Sin presupuesto</h3>
-            <p className="text-sm text-gray-500 mt-1"
-               style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+          <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+            <h3 className="text-sm font-semibold text-ink-900">Sin presupuesto</h3>
+            <p className="text-sm text-ink-500 mt-1 num">
               {formatCurrency(noBudgetTotal)} <span style={{ fontFamily: 'inherit' }} className="font-sans">
                 en {noBudget.length} {noBudget.length === 1 ? 'categoría quedó' : 'categorías quedaron'} fuera del plan.
               </span>
@@ -188,9 +184,8 @@ export default function PresupuestosPage() {
             <div className="flex flex-wrap gap-2 mt-3">
               {noBudget.slice(0, 12).map(c => (
                 <span key={c.category_id}
-                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600">
-                  {c.category_name} <span className="text-gray-400"
-                    style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                  className="border border-line rounded-lg px-3 py-1.5 text-sm text-ink-700">
+                  {c.category_name} <span className="text-ink-500 num">
                     {formatCurrency(c.total)}
                   </span>
                 </span>
@@ -203,10 +198,10 @@ export default function PresupuestosPage() {
       {/* DERECHA */}
       <div className="space-y-4">
         {/* Cumplimiento */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Cumplimiento</h3>
+        <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+          <h3 className="text-sm font-semibold text-ink-900 mb-4">Cumplimiento</h3>
           {totalBudget === 0 ? (
-            <p className="text-sm text-gray-300 py-6 text-center">Definí presupuestos para ver el historial</p>
+            <p className="text-sm text-ink-500 py-6 text-center">Definí presupuestos para ver el historial</p>
           ) : (
             <>
               <div className="flex items-end gap-2 h-24">
@@ -216,14 +211,14 @@ export default function PresupuestosPage() {
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1">
                       <div className={`w-full rounded-sm ${
-                        h.pct === 0 ? 'bg-gray-200' : over ? 'bg-red-600' : 'bg-emerald-700'
+                        h.pct === 0 ? 'bg-line' : over ? 'bg-neg-fill' : 'bg-brand'
                       }`} style={{ height: `${(height / 130) * 100}%` }} />
-                      <span className="text-[11px] text-gray-400">{h.label}</span>
+                      <span className="text-[11px] text-ink-500">{h.label}</span>
                     </div>
                   )
                 })}
               </div>
-              <p className="text-xs text-gray-500 mt-4">
+              <p className="text-xs text-ink-500 mt-4">
                 Cerraste dentro del presupuesto <b>{goodMonths}</b> de los últimos {monthsWithData || 6} meses.
               </p>
             </>
@@ -231,14 +226,14 @@ export default function PresupuestosPage() {
         </div>
 
         {/* Sugerencias */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">
+        <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+          <h3 className="text-sm font-semibold text-ink-900 mb-3">
             Para {MESES[nextMonth.month - 1]}
           </h3>
           {rows.length === 0 && noBudget.length === 0 ? (
-            <p className="text-sm text-gray-300 py-4 text-center">Sin sugerencias todavía</p>
+            <p className="text-sm text-ink-500 py-4 text-center">Sin sugerencias todavía</p>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-line">
               {rows.filter(r => r.pct > 100).slice(0, 2).map(r => (
                 <Suggestion key={r.budget.id}
                   title={r.name}
@@ -292,11 +287,11 @@ function Suggestion({ title, detail, onApply }: { title: string; detail: string;
   return (
     <div className="flex items-center justify-between py-3 gap-3">
       <div className="min-w-0">
-        <p className="text-sm text-gray-800">{title}</p>
-        <p className="text-[11px] text-gray-400">{detail}</p>
+        <p className="text-sm text-ink-900">{title}</p>
+        <p className="text-[11px] text-ink-500">{detail}</p>
       </div>
       <button onClick={onApply}
-        className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 flex-shrink-0">
+        className="border border-line rounded-lg px-3 py-1.5 text-xs text-ink-700 hover:bg-surface-2 flex-shrink-0">
         Aplicar
       </button>
     </div>
@@ -340,20 +335,20 @@ function EditBudgets({ categories, budgets, cats, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white w-full max-w-lg rounded-t-2xl sm:rounded-xl shadow-xl max-h-[90dvh] sm:max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <h2 className="font-semibold text-gray-900">Editar presupuestos mensuales</h2>
-          <button onClick={onClose}><X size={18} className="text-gray-400" /></button>
+      <div className="relative bg-surface w-full max-w-lg rounded-t-2xl sm:rounded-xl shadow-xl max-h-[90dvh] sm:max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+          <h2 className="font-semibold text-ink-900">Editar presupuestos mensuales</h2>
+          <button onClick={onClose}><X size={18} className="text-ink-500" /></button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-3 divide-y divide-gray-100">
+        <div className="flex-1 overflow-y-auto px-5 py-3 divide-y divide-line">
           {categories.map(c => {
             const gastoActual = cats.find(x => x.category_id === c.id)?.total || 0
             return (
               <div key={c.id} className="flex items-center justify-between py-2.5 gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm text-gray-800">{c.name}</p>
+                  <p className="text-sm text-ink-900">{c.name}</p>
                   {gastoActual > 0 && (
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-[11px] text-ink-500">
                       gastaste {formatCurrency(gastoActual)} este mes
                     </p>
                   )}
@@ -363,19 +358,19 @@ function EditBudgets({ categories, budgets, cats, onClose, onSaved }: {
                   value={values[c.id] || ''}
                   onChange={e => setValues(v => ({ ...v, [c.id]: e.target.value }))}
                   placeholder="Sin límite"
-                  className="w-28 sm:w-36 flex-shrink-0 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right outline-none focus:border-emerald-500"
+                  className="w-28 sm:w-36 flex-shrink-0 border border-line rounded-lg px-3 py-1.5 text-sm text-right outline-none focus:border-brand"
                 />
               </div>
             )
           })}
         </div>
-        <div className="px-5 py-3 border-t border-gray-200 flex gap-2">
+        <div className="px-5 py-3 border-t border-line flex gap-2">
           <button onClick={onClose}
-            className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">
+            className="flex-1 border border-line rounded-lg py-2 text-sm text-ink-700 hover:bg-surface-2">
             Cancelar
           </button>
           <button onClick={save} disabled={saving}
-            className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50">
+            className="flex-1 bg-brand hover:bg-brand-hover text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50">
             {saving ? 'Guardando...' : 'Guardar'}
           </button>
         </div>

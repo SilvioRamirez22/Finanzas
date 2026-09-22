@@ -92,51 +92,51 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <h1 className="text-xl font-semibold text-gray-900">Configuración</h1>
+      <h1 className="text-xl font-semibold text-ink-900">Configuración</h1>
 
       {/* Perfil */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
-        <h2 className="text-sm font-medium text-gray-700 mb-3">Cuenta</h2>
+      <div className="bg-surface rounded-2xl border border-line p-4">
+        <h2 className="text-sm font-medium text-ink-700 mb-3">Cuenta</h2>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium text-sm">
+          <div className="w-10 h-10 rounded-full bg-brand-soft flex items-center justify-center text-pos font-medium text-sm">
             {profile?.email?.[0]?.toUpperCase() || '?'}
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{profile?.full_name || 'Usuario'}</p>
-            <p className="text-xs text-gray-500">{profile?.email}</p>
+            <p className="text-sm font-medium text-ink-900">{profile?.full_name || 'Usuario'}</p>
+            <p className="text-xs text-ink-500">{profile?.email}</p>
           </div>
         </div>
       </div>
 
       {/* Exportación */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
-        <h2 className="text-sm font-medium text-gray-700 mb-3">Exportar datos</h2>
+      <div className="bg-surface rounded-2xl border border-line p-4">
+        <h2 className="text-sm font-medium text-ink-700 mb-3">Exportar datos</h2>
         <div className="space-y-2">
           <button onClick={handleExportAll}
-            className="flex items-center justify-between w-full px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors group">
+            className="flex items-center justify-between w-full px-3 py-2.5 rounded-xl hover:bg-surface-2 transition-colors group">
             <div className="flex items-center gap-2">
-              <Download size={16} className="text-gray-400" />
-              <span className="text-sm text-gray-700">Exportar todo a Excel</span>
+              <Download size={16} className="text-ink-500" />
+              <span className="text-sm text-ink-700">Exportar todo a Excel</span>
             </div>
-            <ChevronRight size={14} className="text-gray-300 group-hover:text-gray-500" />
+            <ChevronRight size={14} className="text-ink-500 group-hover:text-ink-500" />
           </button>
         </div>
       </div>
 
       {/* Importación */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
-        <h2 className="text-sm font-medium text-gray-700 mb-3">Importar movimientos</h2>
+      <div className="bg-surface rounded-2xl border border-line p-4">
+        <h2 className="text-sm font-medium text-ink-700 mb-3">Importar movimientos</h2>
 
         {importStep === 'idle' && (
           <div>
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-xs text-ink-500 mb-3">
               Importá movimientos desde un archivo Excel (.xlsx) o CSV (.csv).
               Podrás mapear las columnas antes de confirmar.
             </p>
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv"
               onChange={handleFileUpload} className="hidden" />
             <button onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-gray-300 hover:border-emerald-400 text-sm text-gray-500 hover:text-emerald-600 transition-colors w-full justify-center">
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-line-strong hover:border-brand text-sm text-ink-500 hover:text-pos transition-colors w-full justify-center">
               <Upload size={16} />
               Seleccionar archivo
             </button>
@@ -145,21 +145,21 @@ export default function ConfiguracionPage() {
 
         {importStep === 'mapping' && (
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-3">
+            <p className="text-sm font-medium text-ink-700 mb-3">
               Mapeo de columnas ({importRows.length} filas detectadas)
             </p>
             <div className="space-y-2 mb-4">
               {mapping.map((m, i) => (
                 <div key={m.fileColumn} className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-32 truncate">{m.fileColumn}</span>
-                  <span className="text-gray-300">→</span>
+                  <span className="text-xs text-ink-500 w-32 truncate">{m.fileColumn}</span>
+                  <span className="text-ink-500">→</span>
                   <select value={m.appField || ''}
                     onChange={e => {
                       const newMap = [...mapping]
                       newMap[i] = { ...newMap[i], appField: e.target.value || null }
                       setMapping(newMap)
                     }}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white">
+                    className="flex-1 border border-line rounded-lg px-2 py-1.5 text-xs bg-surface">
                     <option value="">Ignorar columna</option>
                     {APP_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                   </select>
@@ -168,11 +168,11 @@ export default function ConfiguracionPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setImportStep('idle')}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+                className="flex-1 py-2.5 rounded-xl border border-line text-sm text-ink-500 hover:bg-surface-2 transition-colors">
                 Cancelar
               </button>
               <button onClick={applyMapping}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition-colors">
+                className="flex-1 py-2.5 rounded-xl bg-brand text-white text-sm hover:bg-brand-hover transition-colors">
                 Previsualizar
               </button>
             </div>
@@ -181,32 +181,32 @@ export default function ConfiguracionPage() {
 
         {importStep === 'preview' && (
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-3">
+            <p className="text-sm font-medium text-ink-700 mb-3">
               Vista previa — {mappedRows.length} movimientos listos para importar
             </p>
             <div className="max-h-48 overflow-y-auto space-y-1 mb-4">
               {mappedRows.slice(0, 20).map((r, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs py-1 border-b border-gray-50">
-                  <span className="text-gray-400 w-20">{r.date}</span>
-                  <span className="flex-1 text-gray-700 truncate">{r.description}</span>
-                  <span className={r.type === 'income' ? 'text-emerald-600' : 'text-red-500'}>
+                <div key={i} className="flex items-center gap-2 text-xs py-1 border-b border-line">
+                  <span className="text-ink-500 w-20">{r.date}</span>
+                  <span className="flex-1 text-ink-700 truncate">{r.description}</span>
+                  <span className={r.type === 'income' ? 'text-pos' : 'text-neg'}>
                     {r.type === 'income' ? '+' : '-'}{formatCurrency(r.amount, 'ARS', true)}
                   </span>
                 </div>
               ))}
               {mappedRows.length > 20 && (
-                <p className="text-xs text-gray-400 text-center py-1">
+                <p className="text-xs text-ink-500 text-center py-1">
                   ...y {mappedRows.length - 20} más
                 </p>
               )}
             </div>
             <div className="flex gap-2">
               <button onClick={() => setImportStep('mapping')}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50">
+                className="flex-1 py-2.5 rounded-xl border border-line text-sm text-ink-500 hover:bg-surface-2">
                 Volver
               </button>
               <button onClick={confirmImport} disabled={importing}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+                className="flex-1 py-2.5 rounded-xl bg-brand text-white text-sm hover:bg-brand-hover disabled:opacity-50 transition-colors">
                 {importing ? 'Importando...' : `Importar ${mappedRows.length} movimientos`}
               </button>
             </div>
@@ -215,9 +215,9 @@ export default function ConfiguracionPage() {
 
         {importStep === 'done' && (
           <div className="text-center py-4">
-            <p className="text-sm text-emerald-600 font-medium mb-2">¡Importación completada!</p>
+            <p className="text-sm text-pos font-medium mb-2">¡Importación completada!</p>
             <button onClick={() => setImportStep('idle')}
-              className="text-sm text-gray-500 hover:text-gray-700 underline">
+              className="text-sm text-ink-500 hover:text-ink-700 underline">
               Importar otro archivo
             </button>
           </div>
@@ -225,36 +225,36 @@ export default function ConfiguracionPage() {
       </div>
 
       {/* Datos de la app */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
-        <h2 className="text-sm font-medium text-gray-700 mb-3">Resumen de datos</h2>
+      <div className="bg-surface rounded-2xl border border-line p-4">
+        <h2 className="text-sm font-medium text-ink-700 mb-3">Resumen de datos</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-          <div className="bg-gray-50 rounded-xl p-3">
-            <p className="text-lg font-semibold text-gray-900">{accounts.length}</p>
-            <p className="text-xs text-gray-500">Cuentas</p>
+          <div className="bg-surface-2 rounded-xl p-3">
+            <p className="text-lg font-semibold text-ink-900">{accounts.length}</p>
+            <p className="text-xs text-ink-500">Cuentas</p>
           </div>
-          <div className="bg-gray-50 rounded-xl p-3">
-            <p className="text-lg font-semibold text-gray-900">
+          <div className="bg-surface-2 rounded-xl p-3">
+            <p className="text-lg font-semibold text-ink-900">
               {categories.filter(c => !c.parent_id).length}
             </p>
-            <p className="text-xs text-gray-500">Categorías</p>
+            <p className="text-xs text-ink-500">Categorías</p>
           </div>
-          <div className="bg-gray-50 rounded-xl p-3">
-            <p className="text-lg font-semibold text-gray-900">
+          <div className="bg-surface-2 rounded-xl p-3">
+            <p className="text-lg font-semibold text-ink-900">
               {categories.filter(c => c.parent_id).length}
             </p>
-            <p className="text-xs text-gray-500">Subcategorías</p>
+            <p className="text-xs text-ink-500">Subcategorías</p>
           </div>
         </div>
       </div>
 
       {/* Versión y logout */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
+      <div className="bg-surface rounded-2xl border border-line p-4">
         <button onClick={handleLogout}
-          className="flex items-center gap-2 w-full text-sm text-red-500 hover:text-red-600 py-1">
+          className="flex items-center gap-2 w-full text-sm text-neg hover:text-neg py-1">
           <LogOut size={16} />
           Cerrar sesión
         </button>
-        <p className="text-xs text-gray-300 mt-3">Finanzas Personales v1.0.0</p>
+        <p className="text-xs text-ink-500 mt-3">Finanzas Personales v1.0.0</p>
       </div>
     </div>
   )

@@ -66,26 +66,26 @@ export default function LoginPage() {
 
   if (checking) {
     return (
-      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-[100dvh] bg-surface-2 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-card p-6 sm:p-8 w-full max-w-sm">
+    <div className="min-h-[100dvh] bg-surface-2 flex items-center justify-center p-4">
+      <div className="bg-surface rounded-3xl border border-line shadow-card p-6 sm:p-8 w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-600 flex items-center justify-center mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-brand flex items-center justify-center mb-4">
             <Wallet size={28} className="text-white" />
           </div>
-          <h1 className="text-xl font-semibold text-gray-900">Finanzas Personales</h1>
-          <p className="text-sm text-gray-500 mt-1">Ingresá a tu cuenta</p>
+          <h1 className="text-xl font-semibold text-ink-900">Finanzas Personales</h1>
+          <p className="text-sm text-ink-500 mt-1">Ingresá a tu cuenta</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="text-sm text-gray-700 mb-1.5 block font-medium">
+            <label className="text-sm text-ink-700 mb-1.5 block font-medium">
               Email
             </label>
             <input
@@ -98,11 +98,11 @@ export default function LoginPage() {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-emerald-400 transition-colors"
+              className="w-full border border-line rounded-xl px-4 py-3 text-base outline-none focus:border-brand transition-colors"
             />
           </div>
           <div>
-            <label className="text-sm text-gray-700 mb-1.5 block font-medium">
+            <label className="text-sm text-ink-700 mb-1.5 block font-medium">
               Contraseña
             </label>
             <input
@@ -112,13 +112,13 @@ export default function LoginPage() {
               placeholder="Tu contraseña"
               required
               autoComplete="current-password"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-emerald-400 transition-colors"
+              className="w-full border border-line rounded-xl px-4 py-3 text-base outline-none focus:border-brand transition-colors"
             />
           </div>
           <button
             type="submit"
             disabled={loading || !email || !password}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-3.5 text-sm font-medium transition-colors disabled:opacity-50"
+            className="w-full bg-brand hover:bg-brand-hover text-white rounded-xl py-3.5 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {loading ? 'Ingresando...' : 'Ingresar'}
           </button>

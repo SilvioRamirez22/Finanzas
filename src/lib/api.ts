@@ -241,6 +241,35 @@ export async function restoreTransactions(rows: Transaction[]) {
   if (error) throw error
 }
 
+// Movimientos de un rango largo con solo las columnas que hacen falta para
+// sumar. Supabase corta cada respuesta en 1000 filas: se pide por páginas.
+export interface TransactionLite {
+  type: Transaction['type']
+  amount: number
+  date: string
+  category_id: string | null
+  status: Transaction['status']
+}
+
+export async function getTransactionsLite(dateFrom: string, dateTo: string) {
+  const PAGE = 1000
+  const rows: TransactionLite[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await sb()
+      .from('transactions')
+      .select('type, amount, date, category_id, status')
+      .gte('date', dateFrom)
+      .lte('date', dateTo)
+      .order('date', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) throw error
+    rows.push(...(data as TransactionLite[]))
+    if (!data || data.length < PAGE) break
+  }
+  return rows
+}
+
 // ============================================================
 // DASHBOARD
 // ============================================================

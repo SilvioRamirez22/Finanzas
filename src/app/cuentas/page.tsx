@@ -75,23 +75,23 @@ export default function CuentasPage() {
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Cuentas</h1>
-          <p className="text-sm text-gray-500">Balance total: <span className={`font-semibold ${totalBalance >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{formatCurrency(totalBalance, 'ARS', true)}</span></p>
+          <h1 className="text-xl font-semibold text-ink-900">Cuentas</h1>
+          <p className="text-sm text-ink-500">Balance total: <span className={`font-semibold ${totalBalance >= 0 ? 'text-pos' : 'text-neg'}`}>{formatCurrency(totalBalance, 'ARS', true)}</span></p>
         </div>
         <button
           onClick={() => { setEditing(null); setShowForm(true) }}
-          className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-xl text-sm hover:bg-emerald-700 transition-colors"
+          className="flex items-center gap-1.5 bg-brand text-white px-3 py-2 rounded-xl text-sm hover:bg-brand-hover transition-colors"
         >
           <Plus size={14} /> Nueva
         </button>
       </div>
 
       {necesitaAjuste && (
-        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-sm font-medium text-amber-900">
+        <div className="mb-4 rounded-2xl border border-line bg-warn-soft p-4">
+          <p className="text-sm font-medium text-warn">
             Los saldos no arrancan de ningún lado
           </p>
-          <p className="text-sm text-amber-900/80 mt-1">
+          <p className="text-sm text-warn mt-1">
             {sinConfigurar.length === 1
               ? `"${sinConfigurar[0].name}" no tiene saldo inicial, así que lo que ves no es la plata que hay: es la suma de todo lo cargado.`
               : `${sinConfigurar.length} cuentas no tienen saldo inicial, así que lo que ves no es la plata que hay: es la suma de todo lo cargado.`}
@@ -99,7 +99,7 @@ export default function CuentasPage() {
           </p>
           <button
             onClick={() => setAdjusting(sinConfigurar[0])}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-amber-900 px-3 py-2 text-sm font-medium text-white hover:bg-amber-800"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-warn px-3 py-2 text-sm font-medium text-white hover:bg-warn"
           >
             <Scale size={15} /> Ajustar {sinConfigurar[0].name}
           </button>
@@ -112,27 +112,27 @@ export default function CuentasPage() {
           const sinSaldoInicial = Number(acc.initial_balance) === 0 && acc.current_balance < 0
           return (
             <div key={acc.id}
-              className="flex items-center gap-3 bg-white rounded-2xl border border-gray-100 px-4 py-3 hover:border-gray-200 group transition-all"
+              className="flex items-center gap-3 bg-surface rounded-2xl border border-line px-4 py-3 hover:border-line group transition-all"
               style={{ borderLeftColor: acc.color, borderLeftWidth: 3 }}>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{ background: acc.color + '20' }}>
                 <Icon size={18} style={{ color: acc.color }} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">{acc.name}</p>
-                <p className="text-xs text-gray-400">{typeLabels[acc.type]}{acc.currency !== 'ARS' ? ` · ${acc.currency}` : ''}</p>
+                <p className="text-sm font-medium text-ink-900">{acc.name}</p>
+                <p className="text-xs text-ink-500">{typeLabels[acc.type]}{acc.currency !== 'ARS' ? ` · ${acc.currency}` : ''}</p>
               </div>
               <div className="text-right">
-                <p className={`text-sm font-semibold ${acc.current_balance < 0 ? 'text-red-500' : 'text-gray-900'}`}>
+                <p className={`text-sm font-semibold ${acc.current_balance < 0 ? 'text-neg' : 'text-ink-900'}`}>
                   {formatCurrency(acc.current_balance, acc.currency)}
                 </p>
                 {sinSaldoInicial ? (
                   <button onClick={() => setAdjusting(acc)}
-                    className="text-xs text-amber-700 underline underline-offset-2 hover:text-amber-900">
+                    className="text-xs text-warn underline underline-offset-2 hover:text-warn">
                     sin saldo inicial
                   </button>
                 ) : acc.type === 'credit_card' && acc.credit_limit ? (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-ink-500">
                     Límite: {formatCurrency(acc.credit_limit, acc.currency, true)}
                   </p>
                 ) : null}
@@ -141,17 +141,17 @@ export default function CuentasPage() {
               <div className="flex gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-1">
                 <button onClick={() => setAdjusting(acc)}
                   aria-label={`Ajustar saldo de ${acc.name}`} title="Ajustar saldo"
-                  className="p-2.5 text-gray-400 hover:text-emerald-600 transition-colors rounded-lg hover:bg-emerald-50">
+                  className="p-2.5 text-ink-500 hover:text-pos transition-colors rounded-lg hover:bg-brand-soft">
                   <Scale size={16} />
                 </button>
                 <button onClick={() => { setEditing(acc); setShowForm(true) }}
                   aria-label={`Editar ${acc.name}`} title="Editar"
-                  className="p-2.5 text-gray-400 hover:text-blue-500 transition-colors rounded-lg hover:bg-blue-50">
+                  className="p-2.5 text-ink-500 hover:text-info transition-colors rounded-lg hover:bg-info-soft">
                   <Edit2 size={16} />
                 </button>
                 <button onClick={() => handleDelete(acc)}
                   aria-label={`Desactivar ${acc.name}`} title="Desactivar"
-                  className="p-2.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50">
+                  className="p-2.5 text-ink-500 hover:text-neg transition-colors rounded-lg hover:bg-neg-soft">
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -160,7 +160,7 @@ export default function CuentasPage() {
         })}
 
         {!loading && accounts.length === 0 && (
-          <div className="text-center py-12 text-gray-400 text-sm">
+          <div className="text-center py-12 text-ink-500 text-sm">
             No hay cuentas configuradas
           </div>
         )}
@@ -234,17 +234,17 @@ function AdjustBalance({ account, onClose, onSuccess }: {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div role="dialog" aria-modal="true" aria-labelledby="ajuste-titulo"
-        className="relative bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-5 shadow-xl max-h-[90dvh] overflow-y-auto">
+        className="relative bg-surface w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-5 shadow-xl max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 id="ajuste-titulo" className="font-semibold">Ajustar saldo · {account.name}</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="p-2 -mr-2 text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} aria-label="Cerrar" className="p-2 -mr-2 text-ink-500 hover:text-ink-700">
             <X size={18} />
           </button>
         </div>
 
-        <div className="rounded-xl bg-gray-50 p-3 text-sm text-gray-600">
+        <div className="rounded-xl bg-surface-2 p-3 text-sm text-ink-700">
           Hoy la app calcula{' '}
-          <b className={account.current_balance < 0 ? 'text-red-600' : 'text-gray-900'}>
+          <b className={account.current_balance < 0 ? 'text-neg' : 'text-ink-900'}>
             {formatCurrency(account.current_balance, account.currency)}
           </b>{' '}
           sumando tus movimientos
@@ -252,11 +252,11 @@ function AdjustBalance({ account, onClose, onSuccess }: {
         </div>
 
         <div className="mt-4">
-          <label htmlFor="saldo-real" className="text-sm text-gray-700 mb-1.5 block font-medium">
+          <label htmlFor="saldo-real" className="text-sm text-ink-700 mb-1.5 block font-medium">
             ¿Cuánta plata tenés hoy en esta cuenta?
           </label>
-          <div className="flex items-center gap-2 rounded-xl border-2 border-gray-200 px-4 py-3 focus-within:border-emerald-400">
-            <span className="text-xl text-gray-400">$</span>
+          <div className="flex items-center gap-2 rounded-xl border-2 border-line px-4 py-3 focus-within:border-brand">
+            <span className="text-xl text-ink-500">$</span>
             <input
               id="saldo-real"
               ref={inputRef}
@@ -267,10 +267,10 @@ function AdjustBalance({ account, onClose, onSuccess }: {
               onChange={e => setValue(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') save() }}
               placeholder="0"
-              className="flex-1 text-xl font-semibold text-gray-900 outline-none bg-transparent placeholder-gray-300"
+              className="flex-1 text-xl font-semibold text-ink-900 outline-none bg-transparent placeholder-ink-500"
             />
           </div>
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-ink-500 mt-2">
             {account.type === 'credit_card'
               ? 'En una tarjeta, la deuda va en negativo (ej: −180000).'
               : 'Mirá el homebanking o contá la plata: el número de hoy, sin centavos si no querés.'}
@@ -278,7 +278,7 @@ function AdjustBalance({ account, onClose, onSuccess }: {
         </div>
 
         {valido && (
-          <p className="mt-4 text-sm text-emerald-800 bg-emerald-50 rounded-xl p-3">
+          <p className="mt-4 text-sm text-pos bg-brand-soft rounded-xl p-3">
             Se guarda un saldo de partida de{' '}
             <b>{formatCurrency(nuevoInicial!, account.currency)}</b> para que la cuenta muestre{' '}
             <b>{formatCurrency(target!, account.currency)}</b>. Tus movimientos no se tocan.
@@ -287,11 +287,11 @@ function AdjustBalance({ account, onClose, onSuccess }: {
 
         <div className="flex gap-2 mt-5">
           <button onClick={onClose}
-            className="flex-1 border border-gray-200 rounded-xl py-3 text-sm text-gray-600 hover:bg-gray-50">
+            className="flex-1 border border-line rounded-xl py-3 text-sm text-ink-700 hover:bg-surface-2">
             Cancelar
           </button>
           <button onClick={save} disabled={!valido || saving}
-            className="flex-1 bg-emerald-600 text-white rounded-xl py-3 text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">
+            className="flex-1 bg-brand text-white rounded-xl py-3 text-sm font-medium hover:bg-brand-hover disabled:opacity-50">
             {saving ? 'Guardando...' : 'Guardar saldo'}
           </button>
         </div>
@@ -355,34 +355,34 @@ function AccountForm({ account, onClose, onSuccess }: {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-5 shadow-xl max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-surface w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-5 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold">{isNew ? 'Nueva cuenta' : 'Editar cuenta'}</h2>
-          <button onClick={onClose}><X size={18} className="text-gray-400" /></button>
+          <button onClick={onClose}><X size={18} className="text-ink-500" /></button>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Nombre</label>
+            <label className="text-xs text-ink-500 mb-1 block">Nombre</label>
             <input {...register('name', { required: true })}
               placeholder="Ej: Banco Galicia"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400" />
+              className="w-full border border-line rounded-xl px-4 py-3 text-sm outline-none focus:border-brand" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Tipo</label>
+              <label className="text-xs text-ink-500 mb-1 block">Tipo</label>
               <select {...register('type')}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white outline-none focus:border-emerald-400">
+                className="w-full border border-line rounded-xl px-3 py-2.5 text-sm bg-surface outline-none focus:border-brand">
                 {Object.entries(typeLabels).map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Moneda</label>
+              <label className="text-xs text-ink-500 mb-1 block">Moneda</label>
               <select {...register('currency')}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white outline-none focus:border-emerald-400">
+                className="w-full border border-line rounded-xl px-3 py-2.5 text-sm bg-surface outline-none focus:border-brand">
                 <option value="ARS">ARS — Peso</option>
                 <option value="USD">USD — Dólar</option>
                 <option value="EUR">EUR — Euro</option>
@@ -391,12 +391,12 @@ function AccountForm({ account, onClose, onSuccess }: {
           </div>
 
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">
+            <label className="text-xs text-ink-500 mb-1 block">
               {isNew ? 'Saldo inicial' : 'Saldo de partida'}
             </label>
             <input {...register('initial_balance')} type="number" step="0.01"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400" />
-            <p className="text-xs text-gray-500 mt-1">
+              className="w-full border border-line rounded-xl px-4 py-3 text-sm outline-none focus:border-brand" />
+            <p className="text-xs text-ink-500 mt-1">
               {isNew
                 ? 'La plata que ya hay en la cuenta antes de cargar movimientos.'
                 : 'Cambia el saldo de la cuenta sin tocar los movimientos. Si no sabés cuánto poner, usá "Ajustar saldo" y escribí lo que tenés hoy.'}
@@ -406,34 +406,34 @@ function AccountForm({ account, onClose, onSuccess }: {
           {selectedType === 'credit_card' && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Límite</label>
+                <label className="text-xs text-ink-500 mb-1 block">Límite</label>
                 <input {...register('credit_limit')} type="number" step="0.01"
                   placeholder="500000"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-emerald-400" />
+                  className="w-full border border-line rounded-xl px-3 py-2.5 text-sm outline-none focus:border-brand" />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Día cierre</label>
+                <label className="text-xs text-ink-500 mb-1 block">Día cierre</label>
                 <input {...register('closing_day')} type="number" min={1} max={31}
                   placeholder="15"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-emerald-400" />
+                  className="w-full border border-line rounded-xl px-3 py-2.5 text-sm outline-none focus:border-brand" />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Día vto.</label>
+                <label className="text-xs text-ink-500 mb-1 block">Día vto.</label>
                 <input {...register('due_day')} type="number" min={1} max={31}
                   placeholder="5"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-emerald-400" />
+                  className="w-full border border-line rounded-xl px-3 py-2.5 text-sm outline-none focus:border-brand" />
               </div>
             </div>
           )}
 
           {/* Colores */}
           <div>
-            <label className="text-xs text-gray-500 mb-2 block">Color</label>
+            <label className="text-xs text-ink-500 mb-2 block">Color</label>
             <div className="flex flex-wrap gap-2">
               {ACCOUNT_COLORS.map(c => (
                 <button key={c} type="button"
                   onClick={() => setValue('color', c)}
-                  className={`w-8 h-8 rounded-full transition-transform ${selectedColor === c ? 'scale-125 ring-2 ring-offset-1 ring-gray-400' : ''}`}
+                  className={`w-8 h-8 rounded-full transition-transform ${selectedColor === c ? 'scale-125 ring-2 ring-offset-1 ring-line-strong' : ''}`}
                   style={{ background: c }} />
               ))}
             </div>
@@ -441,11 +441,11 @@ function AccountForm({ account, onClose, onSuccess }: {
 
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" {...register('exclude_from_totals')} className="rounded" />
-            <span className="text-sm text-gray-600">Excluir del balance total (ej: tarjeta de crédito)</span>
+            <span className="text-sm text-ink-700">Excluir del balance total (ej: tarjeta de crédito)</span>
           </label>
 
           <button type="submit" disabled={submitting}
-            className="w-full bg-emerald-600 text-white py-3 rounded-xl text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+            className="w-full bg-brand text-white py-3 rounded-xl text-sm font-medium hover:bg-brand-hover disabled:opacity-50 transition-colors">
             {submitting ? 'Guardando...' : isNew ? 'Crear cuenta' : 'Guardar cambios'}
           </button>
         </form>

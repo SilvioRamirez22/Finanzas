@@ -2,16 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Tabler Icons */
-@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css');
 
 /* ============ TOKENS (docs/ux/02-DESIGN-SYSTEM.md) ============ */
-/* Contraste medido sobre --surface. El modo oscuro se agrega cuando todas las
-   pantallas usen estos tokens: antes, quedaría la app mitad clara mitad oscura. */
+/* Contraste medido sobre --surface. El modo oscuro sigue al sistema.
+   Regla: ningún componente escribe un hex ni una clase gray-*; usa estos. */
 :root {
+  color-scheme: light;
+
   --bg: #F5F4F0;
   --surface: #FFFFFF;
   --surface-2: #FAF9F6;
+  --muted: #EFEDE7;        /* pistas de barras, chips neutros */
   --border: #E4E1D9;
   --border-strong: #CFCBC1;
 
@@ -20,19 +21,108 @@
   --ink-500: #6E6B64;  /*  5.3:1: metadata. Nunca gray-400 para texto */
   --ink-300: #C9C5BC;  /* decorativo, nunca texto */
 
+  /* brand = relleno de botones (lleva texto blanco en los dos modos);
+     brand-ink = texto y enlaces */
   --brand: #047857;
+  --brand-hover: #065F46;
   --brand-ink: #065F46;
   --brand-soft: #E7F3EE;
 
   --pos: #0F6B4F;
   --neg: #B0402B;
+  --neg-fill: #B0402B;     /* botones destructivos, con texto blanco */
   --warn: #8A5A06;
   --info: #1E5FA8;
   --pos-soft: #E6F1EC;
   --neg-soft: #F7E9E5;
   --warn-soft: #F6EEDC;
+  --info-soft: #E8F0FA;
 
   --ring: #047857;
+
+  /* Gráficos (validados con el script de dataviz: ver 06-PREGUNTAS §21) */
+  --chart-inc: #15803D;
+  --chart-exp: #DC2626;
+  --chart-hatch: rgba(255, 255, 255, .45);
+  --chart-grid: #ECE9E2;
+  --chart-band: #F3F1EC;
+  --chart-neutral: #8A857A;
+  --data-1: #B0402B;       /* rampa de un tono: categoría más gastada */
+  --data-2: #C4765C;
+  --data-3: #D9A794;
+  /* Mapa de calor: verde = abajo del promedio, terracota = arriba */
+  --heat-0: #B7D9C7; --heat-1: #E1EFE8; --heat-2: #F1EFEA;
+  --heat-3: #EFD5CB; --heat-4: #DDA48F; --heat-5: #B0402B;
+  --heat-fg-0: #1A1A17; --heat-fg-1: #1A1A17; --heat-fg-2: #454239;
+  --heat-fg-3: #1A1A17; --heat-fg-4: #1A1A17; --heat-fg-5: #FFFFFF;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --bg: #14151A;
+    --surface: #1C1E25;
+    --surface-2: #232630;
+    --muted: #2A2D36;
+    --border: #2C303B;
+    --border-strong: #3A3F4D;
+
+    --ink-900: #E9E7E2;  /* 14.8:1 */
+    --ink-700: #C9C6BF;
+    --ink-500: #A9A59C;  /*  7.4:1 */
+    --ink-300: #6B6F78;
+
+    --brand: #047857;
+    --brand-hover: #065F46;
+    --brand-ink: #34D399;
+    --brand-soft: #123A2E;
+
+    --pos: #4ADE80;
+    --neg: #FF8A72;
+    --neg-fill: #B0402B;
+    --warn: #F7C453;
+    --info: #7CB3F5;
+    --pos-soft: #10291D;
+    --neg-soft: #33150F;
+    --warn-soft: #2E2410;
+    --info-soft: #14243A;
+
+    --ring: #34D399;
+
+    /* En oscuro no hay par verde/rojo que pase todo: por eso la trama y las etiquetas. */
+    --chart-inc: #127F42;
+    --chart-exp: #FB8168;
+    --chart-hatch: rgba(28, 30, 37, .55);
+    --chart-grid: #2C303B;
+    --chart-band: #262A33;
+    --chart-neutral: #8C8A84;
+    --data-1: #FF8A72;
+    --data-2: #C4765C;
+    --data-3: #7A5548;
+    --heat-0: #1F5A3E; --heat-1: #193A2C; --heat-2: #2A2D36;
+    --heat-3: #4A2A22; --heat-4: #7A3B2C; --heat-5: #B0402B;
+    --heat-fg-0: #E9E7E2; --heat-fg-1: #E9E7E2; --heat-fg-2: #C9C6BF;
+    --heat-fg-3: #E9E7E2; --heat-fg-4: #E9E7E2; --heat-fg-5: #FFFFFF;
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink-900);
+}
+
+/* Campos sin fondo propio: en oscuro el navegador les pone su gris. */
+@layer base {
+  input, select, textarea {
+    background-color: var(--surface);
+    color: var(--ink-900);
+  }
+}
+
+/* Muestra de la serie de gastos (con trama) para leyendas. */
+.hatch-exp {
+  background: repeating-linear-gradient(45deg, var(--chart-exp) 0 3px, var(--chart-hatch) 3px 4.5px);
 }
 
 /* Montos: mismo ancho por dígito, las columnas quedan alineadas. */
@@ -100,12 +190,12 @@ body {
 /* Scrollbar personalizado */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #e5e7eb transparent;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 
 /* Contenedores que sí pueden scrollear a lo ancho (tablas, filtros).
    Se usa junto a overflow-x-auto para que no se vea la barra en el celular. */
@@ -126,7 +216,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 /* Select styling */
 select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A857A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 32px !important;
