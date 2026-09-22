@@ -128,7 +128,12 @@ Distinto de la spec: sin RPC nuevas (se calcula en el cliente con 3 consultas) y
 teclado numérico del sistema. **Pendiente del lado de Supabase:** correr
 `sql/migrations/001_presupuesto_por_mes.sql` (crea `month_plans`); hasta entonces el ingreso
 esperado y el ahorro no se guardan y la app lo avisa.
-Falta de fase 2: "cargar los fijos del mes" (F3) y alertas en la tarjeta "Atención".
+✅ F3 (2026-09-22): "Cargar fijos" en el Resumen y en el plan. Propone los fijos del mes anterior
+que no aparecen (monto editable, mismo día del mes) y, como casi nada está marcado (D12), también
+lo que se repitió una vez por mes los últimos 3 meses con montos parecidos; esos vienen
+destildados y al cargarlos quedan marcados. Carga en lote con Deshacer. Lógica en `lib/fixed.ts`,
+la misma que usan el Resumen y el plan para "faltan cargar".
+Falta de fase 2: alertas en la tarjeta "Atención".
 
 ### Seguimiento (`07`)
 ✅ (2026-09-22) `/seguimiento` reemplaza a `/historico` (que redirige). En el celular va en la barra

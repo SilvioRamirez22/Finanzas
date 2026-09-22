@@ -6,6 +6,7 @@
 // de la fila que lo cubre con el start_date más nuevo. Un monto 0 significa
 // "sin presupuesto ese mes".
 import type { Budget } from '@/types'
+import { pendingFixed } from './fixed'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 export const firstDay = (y: number, m: number) => `${y}-${pad(m)}-01`
@@ -127,7 +128,6 @@ export interface MonthBudget {
 
 const isFixed = (t: TxForBudget) => t.is_recurring && !(t.installments_total > 1)
 const isInstallment = (t: TxForBudget) => t.installments_total > 1
-const normDesc = (s: string) => s.replace(/\s*\(\d+\/\d+\)\s*$/, '').trim().toLowerCase()
 
 function expensesOf(txs: TxForBudget[], y: number, m: number) {
   const key = monthKey(y, m)
@@ -170,11 +170,9 @@ export function summarizeMonth(txs: TxForBudget[], rows: BudgetRow[], y: number,
     }
   }
 
-  // Fijos que había el mes anterior y este mes todavía no aparecen.
-  const loaded = new Set(cur.filter(isFixed).map(t => normDesc(t.description)))
-  const pending = new Map<string, number>()
-  for (const t of prevTx) if (isFixed(t) && !loaded.has(normDesc(t.description))) pending.set(normDesc(t.description), Number(t.amount))
-  const fixedPending = Array.from(pending.values()).reduce((s, v) => s + v, 0)
+  // Fijos que había el mes anterior y este mes todavía no aparecen (misma
+  // regla que la hoja de "cargar los fijos").
+  const fixedPending = pendingFixed(prevTx, cur, y, m).reduce((s, c) => s + Number(c.source.amount), 0)
 
   const lines = Array.from(byCat.values())
   const budgetedVariable = lines.reduce((s, l) => s + l.budget, 0)

@@ -9,6 +9,8 @@ import RecurringBadge from '@/components/RecurringBadge'
 import { CardSkeleton, ErrorState } from '@/components/ui/States'
 import { useMonthData } from '@/lib/useMonthData'
 import { summarizeMonth, monthProgress } from '@/lib/budget'
+import { pendingFixed, isFixed } from '@/lib/fixed'
+import LoadFixedSheet from '@/components/forms/LoadFixedSheet'
 import type { TransactionFull, CategoryExpense } from '@/types'
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -63,6 +65,7 @@ export default function DashboardPage() {
   const { data, error, reload } = useMonthData(loadMonth)
   const [showAllCats, setShowAllCats] = useState(false)
   const [openCat, setOpenCat] = useState<string | null>(null)
+  const [loadingFixed, setLoadingFixed] = useState(false)
   // Al cambiar de mes no dejamos abierta la categoría del mes anterior.
   useEffect(() => { setOpenCat(null) }, [year, month])
 
@@ -124,20 +127,12 @@ export default function DashboardPage() {
   const planLeft = plan.budgetedVariable - plan.variableOnBudgeted
 
   // Gastos fijos: los de este mes, y los del mes anterior que todavía no
-  // aparecen (se comparan por descripción, sin mayúsculas ni espacios de más).
-  const isFixedExpense = (t: TransactionFull) =>
-    t.is_recurring && t.type === 'expense' && t.status !== 'cancelled'
-  const normDesc = (s: string) => s.trim().toLowerCase()
-  const fixedTx = allTx.filter(isFixedExpense)
+  // aparecen (misma regla que la hoja de "cargar los fijos", lib/fixed.ts).
+  const fixedTx = allTx.filter(t => isFixed(t) && t.type === 'expense')
   const fixedTotal = fixedTx.reduce((s, t) => s + Number(t.amount), 0)
-  const fixedLoaded = new Set(fixedTx.map(t => normDesc(t.description)))
-  const fixedPending = Array.from(
-    new Map(
-      prevAllTx
-        .filter(t => isFixedExpense(t) && !fixedLoaded.has(normDesc(t.description)))
-        .map(t => [normDesc(t.description), t] as const)
-    ).values()
-  )
+  const fixedPending = pendingFixed(prevAllTx, allTx, year, month)
+    .filter(c => c.source.type === 'expense')
+    .map(c => c.source)
 
   const totalSaldo = accounts
     .filter(a => a.is_active && !a.exclude_from_totals)
@@ -368,7 +363,10 @@ export default function DashboardPage() {
           <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-ink-900">Gastos fijos</h3>
-              <Link href="/movimientos" className="text-xs text-ink-500 hover:text-ink-700">Movimientos</Link>
+              <button type="button" onClick={() => setLoadingFixed(true)}
+                className="h-9 px-3 -my-1.5 -mr-1 rounded-lg border border-line text-xs font-semibold text-brand-ink hover:bg-surface-2">
+                Cargar fijos
+              </button>
             </div>
             <p className="text-2xl font-semibold mt-1 tracking-tight text-ink-900 break-words num">
               {formatCurrency(fixedTotal)}
@@ -401,9 +399,15 @@ export default function DashboardPage() {
 
             {fixedPending.length > 0 && (
               <div className="mt-3 pt-3 border-t border-line">
-                <p className="text-[11px] text-warn mb-1.5">
-                  Faltan cargar (estaban en {prevMonthName}):
-                </p>
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <p className="text-xs text-warn">
+                    Faltan cargar (estaban en {prevMonthName}):
+                  </p>
+                  <button type="button" onClick={() => setLoadingFixed(true)}
+                    className="h-9 px-3 -my-1 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold flex-shrink-0">
+                    Cargar {fixedPending.length === 1 ? 'el fijo' : `los ${fixedPending.length}`}
+                  </button>
+                </div>
                 <div className="divide-y divide-line">
                   {fixedPending.map(t => (
                     <div key={t.id} className="flex items-center justify-between py-1.5 text-sm">
@@ -419,8 +423,8 @@ export default function DashboardPage() {
 
             {fixedTx.length === 0 && fixedPending.length === 0 && (
               <p className="text-xs text-ink-500 mt-3">
-                Marcá tus gastos fijos (expensas, luz, internet...) con el ícono ↻ en Movimientos,
-                o tildando &quot;Gasto fijo&quot; al cargarlos.
+                Tocá <b>Cargar fijos</b>: te muestra lo que se repite todos los meses para
+                cargarlo de una vez y dejarlo marcado. También podés marcarlos con ↻ en Movimientos.
               </p>
             )}
           </div>
@@ -501,6 +505,8 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      <LoadFixedSheet open={loadingFixed} onClose={() => setLoadingFixed(false)} year={year} month={month} />
     </div>
   )
 }

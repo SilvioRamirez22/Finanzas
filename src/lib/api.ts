@@ -219,6 +219,19 @@ export async function deleteInstallmentGroup(parentId: string) {
   if (error) throw error
 }
 
+// Carga varios movimientos de una vez (los fijos del mes). Devuelve los ids,
+// para poder deshacer con deleteTransactionsByIds.
+export async function createTransactionsBatch(rows: Partial<Transaction>[]) {
+  const { data, error } = await sb().from('transactions').insert(rows).select('id')
+  if (error) throw error
+  return (data || []).map(r => r.id as string)
+}
+
+export async function deleteTransactionsByIds(ids: string[]) {
+  const { error } = await sb().from('transactions').delete().in('id', ids)
+  if (error) throw error
+}
+
 // Borra y devuelve lo borrado, para poder deshacer con restoreTransactions.
 // group: el id de la primera cuota; borra el grupo entero.
 export async function deleteTransactionsForUndo(target: { id: string } | { group: string }) {

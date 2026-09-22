@@ -11,6 +11,7 @@ import { formatCurrency } from '@/lib/format'
 import { CardSkeleton, ErrorState } from '@/components/ui/States'
 import Sheet from '@/components/ui/Sheet'
 import CategoryIcon from '@/components/CategoryIcon'
+import LoadFixedSheet from '@/components/forms/LoadFixedSheet'
 import {
   summarizeMonth, monthProgress, planBudgetWrites, roundPlan, shift,
   type MonthBudget, type CategoryLine, type BudgetMode,
@@ -27,6 +28,7 @@ export default function PresupuestosPage() {
   const { year, month } = selectedMonth
   const { data, error, reload } = useMonthData(loadBudgetData)
   const [editing, setEditing] = useState<{ line: CategoryLine; suggested: number } | null>(null)
+  const [loadingFixed, setLoadingFixed] = useState(false)
 
   const roots = useMemo(
     () => categories.filter(c => !c.parent_id && c.is_active && c.type !== 'income'),
@@ -85,7 +87,8 @@ export default function PresupuestosPage() {
         {error && <ErrorState compact onRetry={reload} />}
         {data.plans.missing && <MigrationNotice />}
 
-        <PlanCard summary={summary} plan={plan} progress={progress} month={month} name={name} />
+        <PlanCard summary={summary} plan={plan} progress={progress} month={month} name={name}
+          onLoadFixed={() => setLoadingFixed(true)} />
 
         {summary.hasBudget && (
           <section className="bg-surface rounded-2xl border border-line p-4 md:p-5">
@@ -135,6 +138,8 @@ export default function PresupuestosPage() {
         <HistoryCard history={history} />
       </div>
 
+      <LoadFixedSheet open={loadingFixed} onClose={() => setLoadingFixed(false)} year={year} month={month} />
+
       <EditOneSheet
         editing={editing}
         name={editing ? name(editing.line.id) : ''}
@@ -174,12 +179,13 @@ function MigrationNotice() {
 }
 
 // ---------- (a) El plan del mes ----------
-function PlanCard({ summary: s, plan, progress, month, name }: {
+function PlanCard({ summary: s, plan, progress, month, name, onLoadFixed }: {
   summary: MonthBudget
   plan: { expected_income: number | null; savings_target: number } | null
   progress: number
   month: number
   name: (id: string) => string
+  onLoadFixed: () => void
 }) {
   const mes = MESES[month - 1]
   const editHref = '/presupuestos/editar'
@@ -251,7 +257,8 @@ function PlanCard({ summary: s, plan, progress, month, name }: {
 
       <div className="mt-4 pt-3 border-t border-line space-y-2.5">
         <Part neutral label="Fijos" spent={s.fixedSpent} of={s.fixedSpent + s.fixedPending}
-          note={s.fixedPending > 0 ? `faltan cargar ${formatCurrency(s.fixedPending)}` : undefined} />
+          note={s.fixedPending > 0 ? `faltan cargar ${formatCurrency(s.fixedPending)}` : undefined}
+          action={s.fixedPending > 0 ? { label: 'Cargar', onClick: onLoadFixed } : undefined} />
         <Part neutral label="Cuotas" spent={s.installments} of={s.installments} note={s.installments > 0 ? 'ya comprometidas' : undefined} />
         <Part label="Variable" spent={s.variableOnBudgeted} of={s.budgetedVariable} marker={progress > 0 && progress < 1 ? progress : null} />
         {s.variableUnbudgeted > 0 && (
@@ -291,7 +298,10 @@ function Bar({ pct, marker, thin = false, neutral = false }: { pct: number; mark
   )
 }
 
-function Part({ label, spent, of, note, marker, neutral }: { label: string; spent: number; of: number; note?: string; marker?: number | null; neutral?: boolean }) {
+function Part({ label, spent, of, note, marker, neutral, action }: {
+  label: string; spent: number; of: number; note?: string; marker?: number | null; neutral?: boolean
+  action?: { label: string; onClick: () => void }
+}) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2 text-sm">
@@ -299,7 +309,17 @@ function Part({ label, spent, of, note, marker, neutral }: { label: string; spen
         <span className="num text-ink-900">{formatCurrency(spent)} <span className="text-ink-500">de {formatCurrency(of)}</span></span>
       </div>
       <Bar pct={of > 0 ? spent / of : 0} marker={marker} thin neutral={neutral} />
-      {note && <p className="text-xs text-ink-500 mt-1">{note}</p>}
+      {note && (
+        <p className="text-xs text-ink-500 mt-1 flex items-center justify-between gap-3">
+          <span>{note}</span>
+          {action && (
+            <button type="button" onClick={action.onClick}
+              className="h-9 px-3 -my-1.5 rounded-lg border border-line text-xs font-semibold text-brand-ink hover:bg-surface-2">
+              {action.label}
+            </button>
+          )}
+        </p>
+      )}
     </div>
   )
 }
