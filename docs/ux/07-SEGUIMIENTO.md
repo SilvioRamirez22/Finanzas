@@ -28,6 +28,11 @@ tiempo?": si gasto más que antes, en qué, si ahorro, y si el plan del mes se c
 7. **Qué cambió**: 3-4 frases calculadas (subas o bajas sostenidas, plan excedido varios meses)
    con acción cuando la hay.
 
+8. **Próximos 6 meses** (agregado el 2026-09-22): por mes, cuotas que ya existen (exactas), lo
+   ya cargado con fecha futura y los fijos estimados con los de este mes y el anterior (sin contar
+   dos veces lo que ya está cargado), contra el ingreso promedio. Abajo, cada plan en cuotas con
+   cuánto falta y cuándo termina. `buildOutlook` en `lib/seguimiento.ts`.
+
 Montos nominales, sin ajuste por inflación (decisión 17 de `06-PREGUNTAS.md`).
 
 ## Navegación

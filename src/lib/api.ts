@@ -286,6 +286,44 @@ export async function getTransactionsLite(dateFrom: string, dateTo: string) {
   return rows
 }
 
+// Movimientos con fecha posterior a hoy: cuotas que vienen y lo que se cargó
+// por adelantado. El saldo de la base ya los descuenta (el trigger suma todo lo
+// no cancelado), así que "disponible hoy" los devuelve y los muestra aparte.
+export interface FutureTransaction {
+  id: string
+  type: Transaction['type']
+  amount: number
+  date: string
+  account_id: string
+  transfer_to_account_id: string | null
+  status: Transaction['status']
+  installments_total: number
+  installment_number: number
+  parent_transaction_id: string | null
+  description: string
+  category_id: string | null
+  is_recurring: boolean
+}
+
+export async function getFutureTransactions(afterDate: string) {
+  const PAGE = 1000
+  const rows: FutureTransaction[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await sb()
+      .from('transactions')
+      .select('id, type, amount, date, account_id, transfer_to_account_id, status, installments_total, installment_number, parent_transaction_id, description, category_id, is_recurring')
+      .gt('date', afterDate)
+      .neq('status', 'cancelled')
+      .order('date', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) throw error
+    rows.push(...(data as FutureTransaction[]))
+    if (!data || data.length < PAGE) break
+  }
+  return rows
+}
+
 // ============================================================
 // DASHBOARD
 // ============================================================

@@ -145,8 +145,15 @@ de abajo en lugar de Cuentas, que pasa a "Más". Sin SQL nuevo: trae 24 meses de
 paginados y calcula en memoria. "Gasto contra el plan" espera al presupuesto por mes (etapa 4).
 
 ### Etapa 5 — Vista global (`04`)
-Reordenar el dashboard (disponible primero, tarjeta "Atención"), barra de mes con swipe, un solo
-modelo de período, gráficos con la paleta validada.
+✅ (2026-09-22) "Disponible hoy" primero: el saldo sin lo que tiene fecha futura (el trigger de la
+base lo descuenta; D5), con "comprometido a futuro" aparte y las cuentas en otra moneda sin sumar
+(D6). Resumen reordenado en el celular (Atención → Disponible → Resultado → Plan → Categorías →
+Fijos → Últimos) con `contents` + `order`, sin duplicar tarjetas. `MonthBar` reemplaza a
+`MonthNav`: flechas de 44 px, grilla de meses, "Hoy", deslizar para cambiar de mes y `?m=` en la
+dirección; solo en las pantallas que dependen del mes. Estados de mes futuro y mes vacío.
+Se borraron `MonthNav` y `PeriodSelector` (sin uso).
+En Seguimiento, "Próximos 6 meses": cuotas (exactas), ya cargado con fecha futura y fijos
+estimados, contra el ingreso promedio, y qué cuotas siguen y cuándo terminan.
 
 ### Etapa 6 — Lo demás
 Dark mode, íconos y atajos del PWA, resumen de tarjeta, generación de fijos, ajuste por

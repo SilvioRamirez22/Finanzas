@@ -2,9 +2,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { getTransactions, getExpensesByCategory } from '@/lib/api'
+import { getTransactions, getExpensesByCategory, getFutureTransactions } from '@/lib/api'
 import { useAppStore } from '@/store/useAppStore'
-import { formatCurrency } from '@/lib/format'
+import { formatCurrency, todayISO } from '@/lib/format'
 import RecurringBadge from '@/components/RecurringBadge'
 import { CardSkeleton, ErrorState } from '@/components/ui/States'
 import { useMonthData } from '@/lib/useMonthData'
@@ -12,6 +12,7 @@ import { summarizeMonth, monthProgress } from '@/lib/budget'
 import { pendingFixed, isFixed } from '@/lib/fixed'
 import LoadFixedSheet from '@/components/forms/LoadFixedSheet'
 import AttentionCard, { type AttentionItem } from '@/components/dashboard/AttentionCard'
+import AvailableCard from '@/components/dashboard/AvailableCard'
 import type { TransactionFull, CategoryExpense } from '@/types'
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -36,13 +37,16 @@ async function loadMonth(year: number, month: number) {
   const cur = monthRange(year, month)
   const pm = prevMonth(year, month)
   const prev = monthRange(pm.year, pm.month)
-  const [curTx, prevTx, curCats, prevCats] = await Promise.all([
+  const [curTx, prevTx, curCats, prevCats, future] = await Promise.all([
     getTransactions({ date_from: cur.from, date_to: cur.to }, 5000, 0),
     getTransactions({ date_from: prev.from, date_to: prev.to }, 5000, 0),
     getExpensesByCategory(cur.from, cur.to),
     getExpensesByCategory(prev.from, prev.to),
+    // Lo que tiene fecha después de hoy, para separar el disponible de lo comprometido.
+    getFutureTransactions(todayISO()),
   ])
   return {
+    future,
     curTx: curTx.data || [],
     prevTx: prevTx.data || [],
     cats: (curCats || []).filter(c => c.total > 0),
@@ -60,7 +64,7 @@ function sumMonth(txs: TransactionFull[]) {
 }
 
 export default function DashboardPage() {
-  const { accounts, budgets, categories, selectedMonth } = useAppStore()
+  const { accounts, budgets, categories, selectedMonth, setQuickAddOpen } = useAppStore()
   const { year, month } = selectedMonth
 
   const { data, error, reload } = useMonthData(loadMonth)
@@ -135,10 +139,6 @@ export default function DashboardPage() {
     .filter(c => c.source.type === 'expense')
     .map(c => c.source)
 
-  const totalSaldo = accounts
-    .filter(a => a.is_active && !a.exclude_from_totals)
-    .reduce((s, a) => s + a.current_balance, 0)
-
   // Una cuenta sin saldo inicial y en negativo no está mostrando plata: está
   // mostrando la suma de todo lo cargado desde que empezó a usarse la app.
   // Mientras pase eso, decirle "Saldo total" al número es mentir.
@@ -146,6 +146,11 @@ export default function DashboardPage() {
     a.is_active && !a.exclude_from_totals &&
     Number(a.initial_balance) === 0 && a.current_balance < 0
   )
+
+  // Mes que todavía no empezó (aunque ya tenga cuotas cargadas), o sin ningún
+  // movimiento: en vez de un resultado engañoso, qué hay comprometido y qué hacer.
+  const monthState: 'future' | 'empty' | 'normal' =
+    planProgress === 0 ? 'future' : txCount === 0 ? 'empty' : 'normal'
 
   // ---- Atención: lo que pide hacer algo, de lo más grave a lo menos ----
   const catName = (id: string) => categories.find(c => c.id === id)?.name || 'Sin categoría'
@@ -224,21 +229,30 @@ export default function DashboardPage() {
 
       {/* Atención: arriba de todo y a lo ancho, solo si hay algo que hacer. */}
       {attention.length > 0 && (
-        <div className="lg:col-span-2"><AttentionCard items={attention} /></div>
+        <div className="order-1 lg:order-none lg:col-span-2"><AttentionCard items={attention} /></div>
       )}
 
+      {/* En el celular las dos columnas se "disuelven" (contents) y cada tarjeta
+          toma su lugar con order: disponible, resultado, plan, categorías,
+          fijos y últimos (04-GLOBAL-DASHBOARD.md §2.1). En escritorio vuelven
+          a ser dos columnas. */}
+
       {/* ===== COLUMNA IZQUIERDA ===== */}
-      <div className="space-y-4">
+      <div className="contents lg:block lg:space-y-4">
         {/* Mientras llega el mes nuevo, esqueleto: nunca los números del mes anterior. */}
         {!data ? (
           <>
-            <CardSkeleton big lines={3} />
-            <CardSkeleton lines={6} />
+            <div className="order-3 lg:order-none"><CardSkeleton big lines={3} /></div>
+            <div className="order-5 lg:order-none"><CardSkeleton lines={6} /></div>
           </>
         ) : (
           <>
           {/* Resultado del mes */}
-          <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+          {monthState !== 'normal' ? (
+            <EmptyMonth state={monthState} month={month} committed={plan.committed}
+              onAdd={() => setQuickAddOpen(true)} onLoadFixed={() => setLoadingFixed(true)} />
+          ) : (
+          <div className="order-3 lg:order-none bg-surface rounded-2xl border border-line p-4 md:p-5">
             <div className="flex items-start justify-between gap-3">
               <p className="text-[11px] tracking-wide text-ink-500 font-medium">RESULTADO DEL MES</p>
               <div className="text-right flex-shrink-0">
@@ -307,8 +321,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          )}
+
           {/* Gastos por categoría */}
-          <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+          <div className="order-5 lg:order-none bg-surface rounded-2xl border border-line p-4 md:p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-ink-900">Gastos por categoría</h3>
               {cats.length > 9 && (
@@ -389,49 +405,23 @@ export default function DashboardPage() {
       </div>
 
       {/* ===== COLUMNA DERECHA ===== */}
-      <div className="space-y-4">
+      <div className="contents lg:block lg:space-y-4">
 
-        {/* Saldo total */}
-        <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-ink-900">
-              {saldosSinConfigurar ? 'Movimiento acumulado' : 'Saldo total'}
-            </h3>
-            <Link href="/cuentas" className="text-xs text-ink-500 hover:text-ink-700">Cuentas</Link>
-          </div>
-          <p className={`text-2xl sm:text-3xl font-semibold mt-1 tracking-tight break-words ${totalSaldo >= 0 ? 'text-ink-900' : 'text-neg'} num`}>
-            {totalSaldo < 0 ? '−' : ''}$ {formatCurrency(Math.abs(totalSaldo)).replace(/^\$\s?/, '')}
-          </p>
-          {saldosSinConfigurar && (
-            <p className="text-[11px] text-warn mt-1">
-              No es la plata que tenés: es la suma de lo cargado, sin saldo de partida.{' '}
-              <Link href="/cuentas" className="underline underline-offset-2 font-medium">
-                Configurar saldos
-              </Link>
-            </p>
-          )}
-          <div className="mt-3 divide-y divide-line">
-            {accounts.filter(a => a.is_active).map(a => (
-              <div key={a.id} className="flex items-center justify-between py-2 text-sm">
-                <span className="text-ink-700">{a.name}</span>
-                <span className={`num ${a.current_balance < 0 ? 'text-neg' : 'text-ink-900'}`}>
-                  {a.current_balance < 0 ? '−' : ''}{formatCurrency(Math.abs(a.current_balance))}
-                </span>
-              </div>
-            ))}
-          </div>
+        {/* Disponible hoy: lo primero en el celular */}
+        <div className="order-2 lg:order-none">
+          <AvailableCard accounts={accounts} future={data?.future ?? null} unconfigured={saldosSinConfigurar} />
         </div>
 
         {!data ? (
           <>
-            <CardSkeleton lines={3} />
-            <CardSkeleton lines={3} />
-            <CardSkeleton lines={5} />
+            <div className="order-4 lg:order-none"><CardSkeleton lines={3} /></div>
+            <div className="order-6 lg:order-none"><CardSkeleton lines={3} /></div>
+            <div className="order-7 lg:order-none"><CardSkeleton lines={5} /></div>
           </>
         ) : (
           <>
           {/* Gastos fijos */}
-          <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+          <div className="order-6 lg:order-none bg-surface rounded-2xl border border-line p-4 md:p-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-ink-900">Gastos fijos</h3>
               <button type="button" onClick={() => setLoadingFixed(true)}
@@ -501,7 +491,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Presupuesto */}
-          <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+          <div className="order-4 lg:order-none bg-surface rounded-2xl border border-line p-4 md:p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-ink-900">
                 Presupuesto de {MESES[month - 1]}
@@ -541,7 +531,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Últimos movimientos */}
-          <div className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+          <div className="order-7 lg:order-none bg-surface rounded-2xl border border-line p-4 md:p-5">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-ink-900">Últimos movimientos</h3>
               <Link href="/movimientos" className="text-xs text-ink-500 hover:text-ink-700">
@@ -657,6 +647,45 @@ function CategoryDetail({ categoryId, all, total }: {
           Puede haber gastos cargados en una subcategoría.
         </p>
       )}
+    </div>
+  )
+}
+
+// Resultado del mes cuando todavía no hay nada que mostrar (04 §2.4).
+function EmptyMonth({ state, month, committed, onAdd, onLoadFixed }: {
+  state: 'future' | 'empty'
+  month: number
+  committed: number
+  onAdd: () => void
+  onLoadFixed: () => void
+}) {
+  const mes = MESES[month - 1]
+  return (
+    <div className="order-3 lg:order-none bg-surface rounded-2xl border border-line p-4 md:p-5">
+      <p className="text-[11px] tracking-wide text-ink-500 font-medium">RESULTADO DEL MES</p>
+      <h2 className="text-lg font-semibold text-ink-900 mt-1">
+        {state === 'future' ? `${mes.charAt(0).toUpperCase()}${mes.slice(1)} todavía no empezó` : `Todavía no hay movimientos en ${mes}`}
+      </h2>
+      <p className="text-sm text-ink-700 mt-1">
+        {committed > 0
+          ? <>Ya hay <b className="num">{formatCurrency(committed)}</b> comprometidos en cuotas y fijos.</>
+          : state === 'future' ? 'Podés dejar cargados los fijos y armar el plan desde ahora.' : 'Cargá el primero o traé los fijos del mes anterior.'}
+      </p>
+      <div className="flex flex-wrap gap-2 mt-4">
+        {state === 'empty' && (
+          <button type="button" onClick={onAdd}
+            className="h-11 px-4 rounded-xl bg-brand hover:bg-brand-hover text-white text-sm font-semibold">
+            Cargar el primero
+          </button>
+        )}
+        <button type="button" onClick={onLoadFixed}
+          className={`h-11 px-4 rounded-xl text-sm font-semibold ${state === 'empty' ? 'border border-line text-ink-900 hover:bg-surface-2' : 'bg-brand hover:bg-brand-hover text-white'}`}>
+          Cargar fijos
+        </button>
+        <Link href="/presupuestos" className="h-11 px-4 rounded-xl border border-line text-sm font-semibold text-ink-900 hover:bg-surface-2 inline-flex items-center">
+          Ver el plan
+        </Link>
+      </div>
     </div>
   )
 }

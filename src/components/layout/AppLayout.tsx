@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { createClient } from '@/lib/supabase/client'
-import MonthNav from '@/components/layout/MonthNav'
+import MonthBar, { shiftMonth } from '@/components/layout/MonthBar'
 
 const mainTabs = [
   { href: '/dashboard', label: 'Resumen', icon: LayoutGrid },
@@ -30,6 +30,10 @@ const moreTabs = [
 const bottomTabs = mainTabs.slice(0, 4)
 const mobileMoreTabs = [...mainTabs.slice(4), ...moreTabs]
 
+// Pantallas que muestran un mes: solo ahí aparece la barra de mes y funciona
+// deslizar para cambiarlo.
+const MONTH_PAGES = ['/dashboard', '/movimientos', '/presupuestos', '/seguimiento']
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { profile, selectedMonth, setSelectedMonth, setQuickAddOpen } = useAppStore()
@@ -37,6 +41,52 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Cerrar el menú al navegar.
   useEffect(() => { setSheetOpen(false) }, [pathname])
+
+  const monthPage = MONTH_PAGES.some(p => pathname.startsWith(p))
+
+  // El mes vive en la dirección (?m=2026-09): recargar o compartir el link
+  // mantiene el mes. Al entrar se lee; al cambiar se reescribe sin sumar
+  // entradas al historial.
+  const urlRead = useRef(false)
+  useEffect(() => {
+    if (urlRead.current) return
+    urlRead.current = true
+    const m = new URLSearchParams(window.location.search).get('m')
+    const match = m?.match(/^(\d{4})-(\d{2})$/)
+    if (match) {
+      const month = Number(match[2])
+      if (month >= 1 && month <= 12) setSelectedMonth({ year: Number(match[1]), month })
+    }
+  }, [])
+  useEffect(() => {
+    if (!urlRead.current) return
+    const url = new URL(window.location.href)
+    if (monthPage) url.searchParams.set('m', `${selectedMonth.year}-${String(selectedMonth.month).padStart(2, '0')}`)
+    else url.searchParams.delete('m')
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url.href)
+  }, [selectedMonth, pathname, monthPage])
+
+  // Deslizar a los costados cambia de mes. No cuenta si el gesto empieza en
+  // una hoja abierta o en una fila que scrollea de costado (chips, tablas).
+  const touch = useRef<{ x: number; y: number; t: number } | null>(null)
+  function onTouchStart(e: React.TouchEvent) {
+    const target = e.target as HTMLElement
+    if (!monthPage || e.touches.length !== 1 || target.closest('[role="dialog"], .overflow-x-auto, input, textarea, [data-no-swipe]')) {
+      touch.current = null
+      return
+    }
+    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    const start = touch.current
+    touch.current = null
+    if (!start) return
+    const dx = e.changedTouches[0].clientX - start.x
+    const dy = e.changedTouches[0].clientY - start.y
+    if (Math.abs(dx) > 70 && Math.abs(dy) < 40 && Date.now() - start.t < 600) {
+      setSelectedMonth(shiftMonth(selectedMonth, dx < 0 ? 1 : -1))
+    }
+  }
 
   // Bloquear el scroll de fondo mientras el menú está abierto.
   useEffect(() => {
@@ -89,9 +139,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
 
-            {/* Acciones de celular: mes + buscar */}
+            {/* Acciones de celular: buscar (el mes va en su propia fila, abajo) */}
             <div className="flex md:hidden items-center gap-1.5 flex-shrink-0">
-              <MonthNav value={selectedMonth} onChange={setSelectedMonth} compact />
               <Link
                 href="/buscar"
                 aria-label="Buscar"
@@ -101,6 +150,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
           </div>
+
+          {/* --- Mes: en el celular, fila propia a lo ancho --- */}
+          {monthPage && <MonthBar value={selectedMonth} onChange={setSelectedMonth} className="md:hidden -mx-1.5 pb-1" />}
 
           {/* --- Fila 2: solo escritorio --- */}
           <div className="hidden md:flex items-center justify-between">
@@ -139,8 +191,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </nav>
 
-            <div className="flex items-center gap-2 pb-1.5">
-              <MonthNav value={selectedMonth} onChange={setSelectedMonth} />
+            <div className="flex items-center gap-2 pb-1">
+              {monthPage && <MonthBar value={selectedMonth} onChange={setSelectedMonth} className="w-[320px]" />}
               <Link href="/buscar"
                 className="px-3 py-1.5 text-sm text-ink-700 border border-line rounded-lg hover:bg-surface-2 transition-colors">
                 Buscar
@@ -152,7 +204,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* ================= CONTENIDO ================= */}
       {/* pb grande en celular: deja lugar a la barra inferior y al botón "+". */}
-      <main className="max-w-[1400px] mx-auto px-3 md:px-6 py-4 md:py-5 pb-28 md:pb-5">
+      <main
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        className="max-w-[1400px] mx-auto px-3 md:px-6 py-4 md:py-5 pb-28 md:pb-5"
+      >
         {children}
       </main>
 

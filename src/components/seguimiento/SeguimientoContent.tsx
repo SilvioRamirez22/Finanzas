@@ -5,7 +5,7 @@ import { ArrowDownRight, ArrowUpRight, AlertTriangle, Check } from 'lucide-react
 import { formatCurrency } from '@/lib/format'
 import {
   MESES, MESES_CORTO, closedMonths, average, savingsRate, buildInsights,
-  type MonthPoint, type Series, type Insight,
+  type MonthPoint, type Series, type Insight, type OutlookMonth, type InstallmentGroup,
 } from '@/lib/seguimiento'
 
 // Tarjetas y gráficos de Seguimiento. Los gráficos son SVG a mano: barras
@@ -68,7 +68,7 @@ export interface PlanPoint {
   projection: number | null
 }
 
-export default function SeguimientoContent({ series, range, selKey, setSelKey, catId, setCatId, catName, planPoints = [] }: {
+export default function SeguimientoContent({ series, range, selKey, setSelKey, catId, setCatId, catName, planPoints = [], outlook = null }: {
   series: Series
   range: number
   selKey: string | null
@@ -77,6 +77,7 @@ export default function SeguimientoContent({ series, range, selKey, setSelKey, c
   setCatId: (id: string) => void
   catName: (id: string) => string
   planPoints?: PlanPoint[]
+  outlook?: { months: OutlookMonth[]; plans: InstallmentGroup[]; fixedCount: number } | null
 }) {
   const months = series.months
   const hasData = months.some(p => p.income > 0 || p.expense > 0)
@@ -112,6 +113,7 @@ export default function SeguimientoContent({ series, range, selKey, setSelKey, c
           <PlanCard points={planPoints} />
         </div>
       </div>
+      {outlook && <OutlookCard outlook={outlook} avgIncome={average(closed.slice(-3), p => p.income)} />}
       <CategoriesCard series={series} catId={catId} setCatId={setCatId} catName={catName} />
     </>
   )
@@ -565,5 +567,143 @@ function CategoryTrend({ name, vals, cols, avg, closedIdx }: {
         </p>
       )}
     </div>
+  )
+}
+
+// ---------- Próximos 6 meses: lo que ya está comprometido ----------
+function OutlookCard({ outlook, avgIncome }: {
+  outlook: { months: OutlookMonth[]; plans: InstallmentGroup[]; fixedCount: number }
+  avgIncome: number
+}) {
+  const [ref, width] = useWidth<HTMLDivElement>()
+  const { months, plans } = outlook
+  const anything = months.some(m => m.total > 0)
+  if (!anything) {
+    return (
+      <section className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+        <h2 className="text-sm font-semibold text-ink-900">Próximos 6 meses</h2>
+        <p className="text-sm text-ink-700 mt-1">
+          No hay cuotas ni gastos cargados para los próximos meses. Cuando cargues algo en cuotas o marques
+          gastos fijos, acá vas a ver cuánto ya tenés comprometido.
+        </p>
+      </section>
+    )
+  }
+
+  const H = 170, base = 150, top = 18, L = 52
+  const max = niceMax(Math.max(...months.map(m => m.total), avgIncome * 0.2))
+  const y = (v: number) => base - (v / max) * (base - top)
+  const gw = Math.max(0, width - L) / months.length
+  const bw = Math.max(8, Math.min(30, gw - 14))
+  let inst = '', loaded = '', fixed = ''
+  const labels: { x: number; y: number; text: string }[] = []
+  months.forEach((m, j) => {
+    const x = L + gw * j + gw / 2 - bw / 2
+    const y0 = base, y1 = y(m.installments), y2 = y(m.installments + m.loaded), y3 = y(m.total)
+    // Apiladas con 2 px de aire entre segmentos; la punta redondeada es la de arriba.
+    const top1 = m.loaded + m.fixedEstimate > 0
+    inst += top1 ? (y0 - y1 > 0.5 ? `M${x} ${y0}V${y1}H${x + bw}V${y0}Z` : '') : barPath(x, bw, y0, y1)
+    const top2 = m.fixedEstimate > 0
+    const l0 = m.installments > 0 ? y1 - 2 : y0
+    loaded += top2 ? (l0 - y2 > 0.5 ? `M${x} ${l0}V${y2}H${x + bw}V${l0}Z` : '') : barPath(x, bw, l0, y2)
+    const f0 = m.installments + m.loaded > 0 ? y2 - 2 : y0
+    fixed += barPath(x, bw, f0, y3)
+    // Etiqueta corta y solo cuando el total cambia: seis "588k" iguales no dicen nada.
+    const prevTotal = j > 0 ? months[j - 1].total : -1
+    if (m.total > 0 && Math.abs(m.total - prevTotal) > m.total * 0.01) {
+      const text = m.total >= 1e6 ? `${(m.total / 1e6).toLocaleString('es-AR', { maximumFractionDigits: 1 })}M` : `${Math.round(m.total / 1e3)}k`
+      labels.push({ x: x + bw / 2, y: y3 - 5, text })
+    }
+  })
+
+  const first = months[0]
+  const firstPct = avgIncome > 0 ? first.total / avgIncome : null
+  const lastInst = months[months.length - 1].installments
+
+  return (
+    <section className="bg-surface rounded-2xl border border-line p-4 md:p-5">
+      <div className="flex items-baseline justify-between gap-2 flex-wrap">
+        <h2 className="text-sm font-semibold text-ink-900">Próximos 6 meses</h2>
+        <span className="text-xs text-ink-500">lo que ya está comprometido</span>
+      </div>
+      <p className="text-sm text-ink-700 mt-1">
+        {cap(MESES[first.month - 1])} ya tiene <b className="num">{formatCurrency(first.total)}</b> comprometidos
+        {firstPct !== null && <> ({Math.round(firstPct * 100)} % de tu ingreso promedio)</>}.
+        {first.installments > 0 && ` Las cuotas pasan de ${formatCurrency(first.installments)} a ${formatCurrency(lastInst)} en ${MESES[months[months.length - 1].month - 1]}.`}
+      </p>
+
+      <div ref={ref} className="relative mt-3" style={{ height: H + 18 }}>
+        {width > 0 && (
+          <svg width={width} height={H} className="block" aria-hidden="true">
+            <defs>
+              <pattern id="hatch-fixed" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="5" height="5" fill="var(--commit-est)" />
+                <line x1="0" y1="0" x2="0" y2="5" stroke="var(--chart-hatch)" strokeWidth="1.6" />
+              </pattern>
+            </defs>
+            {[max, max / 2, 0].map(v => (
+              <g key={v}>
+                <line x1={L} x2={width} y1={y(v)} y2={y(v)} stroke="var(--chart-grid)" />
+                <text x={0} y={y(v) + 3} fontSize="10" fill="var(--ink-500)">{compact(v)}</text>
+              </g>
+            ))}
+            <path d={inst} fill="var(--commit-inst)" />
+            <path d={loaded} fill="var(--commit-loaded)" />
+            <path d={fixed} fill="url(#hatch-fixed)" />
+            {labels.map(l => (
+              <text key={l.x} x={l.x} y={l.y} fontSize="10" textAnchor="middle" fill="var(--ink-700)">{l.text}</text>
+            ))}
+            {avgIncome > 0 && y(avgIncome) > top - 10 && (
+              <>
+                <line x1={L} x2={width} y1={y(avgIncome)} y2={y(avgIncome)} stroke="var(--ink-700)" strokeWidth="1.5" strokeDasharray="5 3" />
+                <text x={width - 2} y={y(avgIncome) - 4} fontSize="10" textAnchor="end" fill="var(--ink-700)">ingreso promedio</text>
+              </>
+            )}
+          </svg>
+        )}
+        <div className="absolute bottom-0 right-0 flex" style={{ left: L }}>
+          {months.map(m => (
+            <span key={m.key} className="flex-1 text-center text-[11px] leading-4 text-ink-500"
+              title={`${cap(MESES[m.month - 1])} ${m.year}: cuotas ${formatCurrency(m.installments)}, ya cargado ${formatCurrency(m.loaded)}, fijos estimados ${formatCurrency(m.fixedEstimate)}`}>
+              {MESES_CORTO[m.month - 1]}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-x-3.5 gap-y-1.5 mt-2 text-xs text-ink-700">
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[var(--commit-inst)]" />Cuotas</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[var(--commit-loaded)]" />Ya cargado</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm hatch-fixed" />Fijos (estimado)</span>
+      </div>
+      <p className="text-xs text-ink-500 mt-1">
+        Los fijos se estiman con los {outlook.fixedCount} gastos fijos de este mes y el anterior. Las cuotas son exactas.
+      </p>
+
+      {plans.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-line">
+          <h3 className="text-xs font-semibold tracking-wide text-ink-500">CUOTAS QUE SIGUEN</h3>
+          <ul className="mt-1 divide-y divide-line">
+            {plans.slice(0, 8).map(g => {
+              const [ly, lm] = g.last.split('-').map(Number)
+              return (
+                <li key={g.key} className="flex items-center justify-between gap-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block text-sm text-ink-900 truncate">{g.description}</span>
+                    <span className="block text-xs text-ink-500">
+                      {g.remaining === 1 ? 'queda 1 cuota' : `quedan ${g.remaining} cuotas`} · la última en {MESES[lm - 1]}{ly !== new Date().getFullYear() ? ` ${ly}` : ''}
+                    </span>
+                  </span>
+                  <span className="text-right flex-shrink-0">
+                    <span className="block num text-sm text-ink-900">{formatCurrency(g.amount)}</span>
+                    <span className="block num text-xs text-ink-500">faltan {formatCurrency(g.amount * g.remaining)}</span>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+          {plans.length > 8 && <p className="text-xs text-ink-500 mt-1">y {plans.length - 8} más</p>}
+        </div>
+      )}
+    </section>
   )
 }

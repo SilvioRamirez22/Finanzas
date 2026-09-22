@@ -47,6 +47,10 @@
   --chart-grid: #ECE9E2;
   --chart-band: #F3F1EC;
   --chart-neutral: #8A857A;
+  /* Próximos meses (apilado): cuotas, ya cargado, fijos estimados (gris + trama) */
+  --commit-inst: #B0402B;
+  --commit-loaded: #2F6DB5;
+  --commit-est: #8A857A;
   --data-1: #B0402B;       /* rampa de un tono: categoría más gastada */
   --data-2: #C4765C;
   --data-3: #D9A794;
@@ -97,6 +101,9 @@
     --chart-grid: #2C303B;
     --chart-band: #262A33;
     --chart-neutral: #8C8A84;
+    --commit-inst: #CF5A3B;
+    --commit-loaded: #3F7CC6;
+    --commit-est: #9A968E;
     --data-1: #FF8A72;
     --data-2: #C4765C;
     --data-3: #7A5548;
@@ -110,6 +117,11 @@
 body {
   background: var(--bg);
   color: var(--ink-900);
+}
+
+/* Muestra de "fijos estimados" (con trama) para leyendas. */
+.hatch-fixed {
+  background: repeating-linear-gradient(45deg, var(--commit-est) 0 3px, var(--chart-hatch) 3px 4.5px);
 }
 
 /* Campos sin fondo propio: en oscuro el navegador les pone su gris. */

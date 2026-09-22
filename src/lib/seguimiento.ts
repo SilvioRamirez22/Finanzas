@@ -152,3 +152,91 @@ export function buildInsights(
 
   return out.sort((a, b) => b.weight - a.weight).slice(0, 4).map(({ weight, ...i }) => i)
 }
+
+// ---- Lo que viene: los próximos meses ya comprometidos ----
+
+export interface OutlookMonth {
+  key: string
+  year: number
+  month: number
+  installments: number   // cuotas que ya existen en la base (monto exacto)
+  loaded: number         // otros gastos ya cargados con fecha en ese mes
+  fixedEstimate: number  // fijos que se repiten y todavía no están cargados (estimado)
+  total: number
+}
+
+export interface InstallmentGroup {
+  key: string
+  description: string
+  amount: number        // de cada cuota
+  remaining: number     // cuotas que faltan (después de hoy)
+  last: string          // fecha de la última
+}
+
+interface FutureLike {
+  id: string
+  type: string
+  amount: number
+  date: string
+  installments_total: number
+  installment_number: number
+  parent_transaction_id: string | null
+  description: string
+  is_recurring: boolean
+  status: string
+}
+
+interface RecentLike {
+  type: string
+  amount: number
+  date: string
+  description: string
+  is_recurring: boolean
+  installments_total: number
+  status: string
+}
+
+const norm = (s: string) => s.replace(/\s*\(\d+\/\d+\)\s*$/, '').trim().toLowerCase()
+const strip = (s: string) => s.replace(/\s*\(\d+\/\d+\)\s*$/, '').trim()
+
+// future: movimientos con fecha posterior a hoy. recent: el mes actual y el
+// anterior, de donde salen los fijos que se asume que se repiten.
+export function buildOutlook(future: FutureLike[], recent: RecentLike[], months = 6, today = new Date()) {
+  const keys: { key: string; year: number; month: number }[] = []
+  for (let k = 1; k <= months; k++) {
+    const d = new Date(today.getFullYear(), today.getMonth() + k, 1)
+    keys.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, year: d.getFullYear(), month: d.getMonth() + 1 })
+  }
+
+  // Fijos de referencia: el último monto de cada gasto fijo del mes actual o el anterior.
+  const fixedRef = new Map<string, { amount: number; date: string }>()
+  for (const t of recent) {
+    if (!t.is_recurring || t.type !== 'expense' || t.installments_total > 1 || t.status === 'cancelled') continue
+    const k = norm(t.description)
+    const prev = fixedRef.get(k)
+    if (!prev || t.date > prev.date) fixedRef.set(k, { amount: Number(t.amount), date: t.date })
+  }
+
+  const out: OutlookMonth[] = keys.map(k => {
+    const inMonth = future.filter(t => t.type === 'expense' && t.date.startsWith(k.key))
+    const installments = inMonth.filter(t => t.installments_total > 1).reduce((s, t) => s + Number(t.amount), 0)
+    const loaded = inMonth.filter(t => !(t.installments_total > 1)).reduce((s, t) => s + Number(t.amount), 0)
+    const present = new Set(inMonth.map(t => norm(t.description)))
+    let fixedEstimate = 0
+    fixedRef.forEach((v, desc) => { if (!present.has(desc)) fixedEstimate += v.amount })
+    return { ...k, installments, loaded, fixedEstimate, total: installments + loaded + fixedEstimate }
+  })
+
+  // Planes en cuotas que siguen: cuánto falta y cuándo termina cada uno.
+  const groups = new Map<string, InstallmentGroup>()
+  for (const t of future) {
+    if (t.type !== 'expense' || !(t.installments_total > 1)) continue
+    const key = t.parent_transaction_id || t.id
+    const g = groups.get(key)
+    if (g) { g.remaining++; if (t.date > g.last) g.last = t.date }
+    else groups.set(key, { key, description: strip(t.description), amount: Number(t.amount), remaining: 1, last: t.date })
+  }
+  const plans = Array.from(groups.values()).sort((a, b) => a.last.localeCompare(b.last) || b.amount - a.amount)
+
+  return { months: out, plans, fixedCount: fixedRef.size }
+}

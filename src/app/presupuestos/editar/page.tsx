@@ -182,7 +182,7 @@ export default function EditarPlanPage() {
       </section>
 
       {/* Sin asignar: sigue a la vista mientras se editan los topes. */}
-      <div className="sticky top-[57px] md:top-[97px] z-20">
+      <div className="sticky top-[106px] md:top-[97px] z-20">
         <div className={`rounded-2xl border px-4 py-3 shadow-[0_1px_3px_rgb(26_22_16/0.08)] ${
           incomeN === 0 ? 'bg-surface border-line' : unassigned >= 0 ? 'bg-pos-soft border-line' : 'bg-neg-soft border-line'
         }`} role="status" aria-live="polite">
