@@ -17,6 +17,9 @@ interface AppState {
   sidebarOpen: boolean
   quickAddOpen: boolean
   selectedMonth: MonthValue
+  // Sube cada vez que se crea, edita o borra un movimiento. Las pantallas que
+  // muestran movimientos dependen de este número para recargarse solas.
+  dataVersion: number
 
   setProfile: (profile: Profile | null) => void
   setAccounts: (accounts: Account[]) => void
@@ -27,6 +30,7 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void
   setQuickAddOpen: (open: boolean) => void
   setSelectedMonth: (m: MonthValue) => void
+  notifyDataChanged: () => void
 
   totalBalance: () => number
   expenseCategories: () => Category[]
@@ -45,6 +49,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   sidebarOpen: false,
   quickAddOpen: false,
   selectedMonth: { year: now.getFullYear(), month: now.getMonth() + 1 },
+  dataVersion: 0,
 
   setProfile: (profile) => set({ profile }),
   setAccounts: (accounts) => set({ accounts }),
@@ -55,6 +60,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setQuickAddOpen: (quickAddOpen) => set({ quickAddOpen }),
   setSelectedMonth: (selectedMonth) => set({ selectedMonth }),
+  notifyDataChanged: () => set(s => ({ dataVersion: s.dataVersion + 1 })),
 
   totalBalance: () => {
     const { accounts } = get()

@@ -1,11 +1,13 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { getTransactions, getExpensesByCategory } from '@/lib/api'
 import { useAppStore } from '@/store/useAppStore'
 import { formatCurrency } from '@/lib/format'
 import RecurringBadge from '@/components/RecurringBadge'
+import { CardSkeleton, ErrorState } from '@/components/ui/States'
+import { useMonthData } from '@/lib/useMonthData'
 import type { TransactionFull, CategoryExpense } from '@/types'
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -26,69 +28,54 @@ function prevMonth(year: number, month: number) {
   return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 }
 }
 
+async function loadMonth(year: number, month: number) {
+  const cur = monthRange(year, month)
+  const pm = prevMonth(year, month)
+  const prev = monthRange(pm.year, pm.month)
+  const [curTx, prevTx, curCats, prevCats] = await Promise.all([
+    getTransactions({ date_from: cur.from, date_to: cur.to }, 5000, 0),
+    getTransactions({ date_from: prev.from, date_to: prev.to }, 5000, 0),
+    getExpensesByCategory(cur.from, cur.to),
+    getExpensesByCategory(prev.from, prev.to),
+  ])
+  return {
+    curTx: curTx.data || [],
+    prevTx: prevTx.data || [],
+    cats: (curCats || []).filter(c => c.total > 0),
+    prevCats: prevCats || [],
+  }
+}
+
+function sumMonth(txs: TransactionFull[]) {
+  let income = 0, expenses = 0
+  for (const t of txs) {
+    if (t.type === 'income') income += Number(t.amount)
+    else if (t.type === 'expense') expenses += Number(t.amount)
+  }
+  return { income, expenses }
+}
+
 export default function DashboardPage() {
   const { accounts, budgets, selectedMonth } = useAppStore()
   const { year, month } = selectedMonth
 
-  const [income, setIncome] = useState(0)
-  const [expenses, setExpenses] = useState(0)
-  const [txCount, setTxCount] = useState(0)
-  const [prevIncome, setPrevIncome] = useState(0)
-  const [prevExpenses, setPrevExpenses] = useState(0)
-  const [cats, setCats] = useState<CategoryExpense[]>([])
-  const [prevCats, setPrevCats] = useState<CategoryExpense[]>([])
-  const [recent, setRecent] = useState<TransactionFull[]>([])
-  // Todos los movimientos del mes. Ya los traíamos para calcular los totales,
-  // asi que el detalle de cada categoría no necesita ninguna consulta extra.
-  const [allTx, setAllTx] = useState<TransactionFull[]>([])
-  // Movimientos del mes anterior: para avisar qué gastos fijos faltan cargar.
-  const [prevAllTx, setPrevAllTx] = useState<TransactionFull[]>([])
+  const { data, error, reload } = useMonthData(loadMonth)
   const [showAllCats, setShowAllCats] = useState(false)
   const [openCat, setOpenCat] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Al cambiar de mes no dejamos abierta la categoría del mes anterior.
+  useEffect(() => { setOpenCat(null) }, [year, month])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const cur = monthRange(year, month)
-      const pm = prevMonth(year, month)
-      const prev = monthRange(pm.year, pm.month)
-
-      const [curTx, prevTx, curCats, prevCatsData] = await Promise.all([
-        getTransactions({ date_from: cur.from, date_to: cur.to }, 5000, 0),
-        getTransactions({ date_from: prev.from, date_to: prev.to }, 5000, 0),
-        getExpensesByCategory(cur.from, cur.to),
-        getExpensesByCategory(prev.from, prev.to),
-      ])
-
-      let inc = 0, exp = 0
-      for (const t of (curTx.data || [])) {
-        if (t.type === 'income') inc += Number(t.amount)
-        else if (t.type === 'expense') exp += Number(t.amount)
-      }
-      setIncome(inc); setExpenses(exp)
-      setTxCount((curTx.data || []).length)
-      setRecent((curTx.data || []).slice(0, 5))
-      setAllTx(curTx.data || [])
-      // Al cambiar de mes no dejamos abierta la categoría del mes anterior.
-      setOpenCat(null)
-
-      let pInc = 0, pExp = 0
-      for (const t of (prevTx.data || [])) {
-        if (t.type === 'income') pInc += Number(t.amount)
-        else if (t.type === 'expense') pExp += Number(t.amount)
-      }
-      setPrevIncome(pInc); setPrevExpenses(pExp)
-      setPrevAllTx(prevTx.data || [])
-
-      setCats((curCats || []).filter(c => c.total > 0))
-      setPrevCats(prevCatsData || [])
-    } finally {
-      setLoading(false)
-    }
-  }, [year, month])
-
-  useEffect(() => { load() }, [load])
+  // Todos los movimientos del mes: ya se traen para calcular los totales, así
+  // que el detalle de cada categoría no necesita ninguna consulta extra.
+  // Los del mes anterior sirven para avisar qué gastos fijos faltan cargar.
+  const allTx = data?.curTx ?? []
+  const prevAllTx = data?.prevTx ?? []
+  const cats = data?.cats ?? []
+  const prevCats = data?.prevCats ?? []
+  const { income, expenses } = sumMonth(allTx)
+  const { income: prevIncome, expenses: prevExpenses } = sumMonth(prevAllTx)
+  const txCount = allTx.length
+  const recent = allTx.slice(0, 5)
 
   const net = income - expenses
   const prevNet = prevIncome - prevExpenses
@@ -161,164 +148,181 @@ export default function DashboardPage() {
     Number(a.initial_balance) === 0 && a.current_balance < 0
   )
 
+  // Sin datos del mes y con error: no hay nada útil para mostrar.
+  if (error && !data) return <ErrorState onRetry={reload} />
+
   return (
     <div className="grid lg:grid-cols-[1fr_380px] gap-4">
+      {/* Falló una recarga en segundo plano: los números de abajo son los de antes. */}
+      {error && data && (
+        <div className="lg:col-span-2"><ErrorState compact onRetry={reload} /></div>
+      )}
+
       {/* ===== COLUMNA IZQUIERDA ===== */}
       <div className="space-y-4">
+        {/* Mientras llega el mes nuevo, esqueleto: nunca los números del mes anterior. */}
+        {!data ? (
+          <>
+            <CardSkeleton big lines={3} />
+            <CardSkeleton lines={6} />
+          </>
+        ) : (
+          <>
+          {/* Resultado del mes */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-[11px] tracking-wide text-gray-400 font-medium">RESULTADO DEL MES</p>
+              <div className="text-right flex-shrink-0">
+                <span className="text-[11px] text-gray-400">vs. {prevMonthName}</span>
+                {prevNet !== 0 && (
+                  <div className={`mt-1 inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                    netDiff >= 0 ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
+                  }`}>
+                    {netDiff >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(netDiff))}
+                  </div>
+                )}
+              </div>
+            </div>
 
-        {/* Resultado del mes */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-[11px] tracking-wide text-gray-400 font-medium">RESULTADO DEL MES</p>
-            <div className="text-right flex-shrink-0">
-              <span className="text-[11px] text-gray-400">vs. {prevMonthName}</span>
-              {prevNet !== 0 && (
-                <div className={`mt-1 inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                  netDiff >= 0 ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'
+            {/* text-4xl fijo desbordaba en pantallas de 360px con montos de 7 cifras. */}
+            <p className={`text-[26px] sm:text-3xl md:text-4xl font-semibold mt-1 tracking-tight break-words ${net >= 0 ? 'text-emerald-800' : 'text-red-600'}`}
+               style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+              {net >= 0 ? '+' : '−'}$ {formatCurrency(Math.abs(net)).replace(/^\$\s?/, '')}
+            </p>
+
+            <p className="text-sm text-gray-500 mt-1">
+              {income > 0
+                ? <>Ahorraste el <b className="text-gray-700">{savingsPct.toFixed(1)}%</b> de lo que ingresó · {txCount} movimientos</>
+                : <>{txCount} movimientos este mes</>}
+            </p>
+
+            {/* Barra gastos vs ingresos */}
+            <div className="mt-4 h-2 rounded-full bg-emerald-700 overflow-hidden flex">
+              <div className="h-full bg-red-600" style={{ width: `${expPctOfIncome}%` }} />
+            </div>
+
+            {/* Sub-métricas */}
+            {/* 3 columnas fijas cortaban los números en el celular. */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-5 pt-4 border-t border-gray-100 divide-y sm:divide-y-0 divide-gray-100">
+              <div className="pt-0">
+                <p className="text-xs text-gray-400">Ingresos</p>
+                <p className="text-lg font-semibold text-gray-900 mt-0.5"
+                   style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                  {formatCurrency(income)}
+                </p>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  {incVarPct === null ? `sin datos de ${prevMonthName}`
+                    : Math.abs(incVarPct) < 1 ? `sin cambios vs. ${prevMonthName}`
+                    : `${incVarPct > 0 ? '▲' : '▼'}${Math.abs(incVarPct).toFixed(1)}% vs. ${prevMonthName}`}
+                </p>
+              </div>
+              <div className="pt-3 sm:pt-0 sm:border-l sm:border-gray-100 sm:pl-4">
+                <p className="text-xs text-gray-400">Gastos</p>
+                <p className="text-lg font-semibold text-gray-900 mt-0.5"
+                   style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                  {formatCurrency(expenses)}
+                </p>
+                <p className={`text-[11px] mt-0.5 ${
+                  expVarPct === null ? 'text-gray-400' : expVarPct > 0 ? 'text-red-600' : 'text-emerald-700'
                 }`}>
-                  {netDiff >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(netDiff))}
-                </div>
+                  {expVarPct === null ? `sin datos de ${prevMonthName}`
+                    : `${expVarPct > 0 ? '▲' : '▼'}${Math.abs(expVarPct).toFixed(1)}% vs. ${prevMonthName}`}
+                </p>
+              </div>
+              <div className="pt-3 sm:pt-0 sm:border-l sm:border-gray-100 sm:pl-4">
+                <p className="text-xs text-gray-400">Gasto diario prom.</p>
+                <p className="text-lg font-semibold text-gray-900 mt-0.5"
+                   style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                  {formatCurrency(dailyAvg)}
+                </p>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  proyección: {formatCurrency(projection)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Gastos por categoría */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">Gastos por categoría</h3>
+              {cats.length > 9 && (
+                <button onClick={() => setShowAllCats(!showAllCats)}
+                  className="text-xs text-gray-400 hover:text-gray-700">
+                  {showAllCats ? `${cats.length} de ${cats.length} · ver menos` : `9 de ${cats.length} · ver todas`}
+                </button>
               )}
             </div>
-          </div>
 
-          {/* text-4xl fijo desbordaba en pantallas de 360px con montos de 7 cifras. */}
-          <p className={`text-[26px] sm:text-3xl md:text-4xl font-semibold mt-1 tracking-tight break-words ${net >= 0 ? 'text-emerald-800' : 'text-red-600'}`}
-             style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-            {net >= 0 ? '+' : '−'}$ {formatCurrency(Math.abs(net)).replace(/^\$\s?/, '')}
-          </p>
+            {cats.length === 0 ? (
+              <p className="text-sm text-gray-300 py-8 text-center">Sin gastos este mes</p>
+            ) : (
+              <div className="space-y-2.5">
+                {shownCats.map((c, i) => {
+                  const v = catVar(c)
+                  const open = openCat === c.category_id
+                  return (
+                    <div key={c.category_id}>
+                      {/* En el celular: nombre + monto + variación en una línea y la
+                          barra abajo a lo ancho. En escritorio, todo en una sola fila. */}
+                      <button
+                        type="button"
+                        onClick={() => setOpenCat(open ? null : c.category_id)}
+                        aria-expanded={open}
+                        className={`w-full text-left flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm -mx-2 px-2 py-1 rounded-lg transition-colors ${
+                          open ? 'bg-gray-50' : 'hover:bg-gray-50 active:bg-gray-50'
+                        }`}
+                      >
+                        <span className="order-1 flex-1 min-w-0 flex items-center gap-1 md:flex-none md:w-32">
+                          <ChevronRight
+                            size={13}
+                            className={`flex-shrink-0 text-gray-300 transition-transform ${open ? 'rotate-90' : ''}`}
+                          />
+                          <span className="truncate text-gray-700">{c.category_name}</span>
+                        </span>
+                        <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-gray-100 rounded-sm overflow-hidden">
+                          <div className="h-full rounded-sm transition-all"
+                            style={{
+                              width: `${(c.total / maxCat) * 100}%`,
+                              background: i === 0 ? '#B54A32' : i < 3 ? '#C08268' : '#D5D2CB'
+                            }} />
+                        </div>
+                        <span className="order-2 md:order-3 text-right text-gray-900 flex-shrink-0 md:w-28"
+                              style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                          {formatCurrency(c.total)}
+                        </span>
+                        <span className={`order-3 md:order-4 w-11 md:w-14 text-right text-xs flex-shrink-0 ${v.color}`}>
+                          {v.label}
+                        </span>
+                      </button>
 
-          <p className="text-sm text-gray-500 mt-1">
-            {income > 0
-              ? <>Ahorraste el <b className="text-gray-700">{savingsPct.toFixed(1)}%</b> de lo que ingresó · {txCount} movimientos</>
-              : <>{txCount} movimientos este mes</>}
-          </p>
-
-          {/* Barra gastos vs ingresos */}
-          <div className="mt-4 h-2 rounded-full bg-emerald-700 overflow-hidden flex">
-            <div className="h-full bg-red-600" style={{ width: `${expPctOfIncome}%` }} />
-          </div>
-
-          {/* Sub-métricas */}
-          {/* 3 columnas fijas cortaban los números en el celular. */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-5 pt-4 border-t border-gray-100 divide-y sm:divide-y-0 divide-gray-100">
-            <div className="pt-0">
-              <p className="text-xs text-gray-400">Ingresos</p>
-              <p className="text-lg font-semibold text-gray-900 mt-0.5"
-                 style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                {formatCurrency(income)}
-              </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                {incVarPct === null ? `sin datos de ${prevMonthName}`
-                  : Math.abs(incVarPct) < 1 ? `sin cambios vs. ${prevMonthName}`
-                  : `${incVarPct > 0 ? '▲' : '▼'}${Math.abs(incVarPct).toFixed(1)}% vs. ${prevMonthName}`}
-              </p>
-            </div>
-            <div className="pt-3 sm:pt-0 sm:border-l sm:border-gray-100 sm:pl-4">
-              <p className="text-xs text-gray-400">Gastos</p>
-              <p className="text-lg font-semibold text-gray-900 mt-0.5"
-                 style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                {formatCurrency(expenses)}
-              </p>
-              <p className={`text-[11px] mt-0.5 ${
-                expVarPct === null ? 'text-gray-400' : expVarPct > 0 ? 'text-red-600' : 'text-emerald-700'
-              }`}>
-                {expVarPct === null ? `sin datos de ${prevMonthName}`
-                  : `${expVarPct > 0 ? '▲' : '▼'}${Math.abs(expVarPct).toFixed(1)}% vs. ${prevMonthName}`}
-              </p>
-            </div>
-            <div className="pt-3 sm:pt-0 sm:border-l sm:border-gray-100 sm:pl-4">
-              <p className="text-xs text-gray-400">Gasto diario prom.</p>
-              <p className="text-lg font-semibold text-gray-900 mt-0.5"
-                 style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                {formatCurrency(dailyAvg)}
-              </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                proyección: {formatCurrency(projection)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Gastos por categoría */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-900">Gastos por categoría</h3>
-            {cats.length > 9 && (
-              <button onClick={() => setShowAllCats(!showAllCats)}
-                className="text-xs text-gray-400 hover:text-gray-700">
-                {showAllCats ? `${cats.length} de ${cats.length} · ver menos` : `9 de ${cats.length} · ver todas`}
-              </button>
+                      {open && <CategoryDetail categoryId={c.category_id} all={allTx} total={c.total} />}
+                    </div>
+                  )
+                })}
+                {!showAllCats && restCats.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm pt-2 border-t border-gray-100">
+                    <span className="order-1 flex-1 min-w-0 truncate text-gray-400 md:flex-none md:w-32">
+                      Otras {restCats.length}
+                    </span>
+                    <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-gray-100 rounded-sm overflow-hidden">
+                      <div className="h-full bg-gray-300 rounded-sm"
+                        style={{ width: `${(restTotal / maxCat) * 100}%` }} />
+                    </div>
+                    <span className="order-2 md:order-3 text-right text-gray-500 flex-shrink-0 md:w-28"
+                          style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                      {formatCurrency(restTotal)}
+                    </span>
+                    <span className="order-3 md:order-4 w-11 md:w-14 text-right text-xs text-gray-400 flex-shrink-0">
+                      {totalCats > 0 ? `${Math.round((restTotal / totalCats) * 100)}%` : ''}
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-
-          {cats.length === 0 ? (
-            <p className="text-sm text-gray-300 py-8 text-center">Sin gastos este mes</p>
-          ) : (
-            <div className="space-y-2.5">
-              {shownCats.map((c, i) => {
-                const v = catVar(c)
-                const open = openCat === c.category_id
-                return (
-                  <div key={c.category_id}>
-                    {/* En el celular: nombre + monto + variación en una línea y la
-                        barra abajo a lo ancho. En escritorio, todo en una sola fila. */}
-                    <button
-                      type="button"
-                      onClick={() => setOpenCat(open ? null : c.category_id)}
-                      aria-expanded={open}
-                      className={`w-full text-left flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm -mx-2 px-2 py-1 rounded-lg transition-colors ${
-                        open ? 'bg-gray-50' : 'hover:bg-gray-50 active:bg-gray-50'
-                      }`}
-                    >
-                      <span className="order-1 flex-1 min-w-0 flex items-center gap-1 md:flex-none md:w-32">
-                        <ChevronRight
-                          size={13}
-                          className={`flex-shrink-0 text-gray-300 transition-transform ${open ? 'rotate-90' : ''}`}
-                        />
-                        <span className="truncate text-gray-700">{c.category_name}</span>
-                      </span>
-                      <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-gray-100 rounded-sm overflow-hidden">
-                        <div className="h-full rounded-sm transition-all"
-                          style={{
-                            width: `${(c.total / maxCat) * 100}%`,
-                            background: i === 0 ? '#B54A32' : i < 3 ? '#C08268' : '#D5D2CB'
-                          }} />
-                      </div>
-                      <span className="order-2 md:order-3 text-right text-gray-900 flex-shrink-0 md:w-28"
-                            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                        {formatCurrency(c.total)}
-                      </span>
-                      <span className={`order-3 md:order-4 w-11 md:w-14 text-right text-xs flex-shrink-0 ${v.color}`}>
-                        {v.label}
-                      </span>
-                    </button>
-
-                    {open && <CategoryDetail categoryId={c.category_id} all={allTx} total={c.total} />}
-                  </div>
-                )
-              })}
-              {!showAllCats && restCats.length > 0 && (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm pt-2 border-t border-gray-100">
-                  <span className="order-1 flex-1 min-w-0 truncate text-gray-400 md:flex-none md:w-32">
-                    Otras {restCats.length}
-                  </span>
-                  <div className="order-4 w-full h-2 md:order-2 md:w-auto md:flex-1 md:h-4 bg-gray-100 rounded-sm overflow-hidden">
-                    <div className="h-full bg-gray-300 rounded-sm"
-                      style={{ width: `${(restTotal / maxCat) * 100}%` }} />
-                  </div>
-                  <span className="order-2 md:order-3 text-right text-gray-500 flex-shrink-0 md:w-28"
-                        style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                    {formatCurrency(restTotal)}
-                  </span>
-                  <span className="order-3 md:order-4 w-11 md:w-14 text-right text-xs text-gray-400 flex-shrink-0">
-                    {totalCats > 0 ? `${Math.round((restTotal / totalCats) * 100)}%` : ''}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       {/* ===== COLUMNA DERECHA ===== */}
@@ -357,143 +361,153 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Gastos fijos */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Gastos fijos</h3>
-            <Link href="/movimientos" className="text-xs text-gray-400 hover:text-gray-700">Movimientos</Link>
-          </div>
-          <p className="text-2xl font-semibold mt-1 tracking-tight text-gray-900 break-words"
-             style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-            {formatCurrency(fixedTotal)}
-          </p>
-          <p className="text-[11px] text-gray-400 mt-0.5">
-            {fixedTx.length} {fixedTx.length === 1 ? 'gasto fijo' : 'gastos fijos'} en {MESES[month - 1]}
-            {expenses > 0 && fixedTotal > 0 && <> · {Math.round((fixedTotal / expenses) * 100)}% del gasto</>}
-          </p>
-
-          {/* Cada gasto fijo cargado este mes, del más caro al más barato. */}
-          {fixedTx.length > 0 && (
-            <div className="mt-3 divide-y divide-gray-100">
-              {[...fixedTx].sort((a, b) => Number(b.amount) - Number(a.amount)).map(t => (
-                <div key={t.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-                  <div className="min-w-0">
-                    <p className="text-gray-700 truncate">
-                      <span className="text-emerald-600 mr-1">✓</span>{t.description}
-                    </p>
-                    <p className="text-[11px] text-gray-400 truncate">
-                      {shortDate(t.date)}{t.category_name && <> · {t.category_name}</>}
-                    </p>
-                  </div>
-                  <span className="text-gray-900 flex-shrink-0"
-                        style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                    {formatCurrency(Number(t.amount))}
-                  </span>
-                </div>
-              ))}
+        {!data ? (
+          <>
+            <CardSkeleton lines={3} />
+            <CardSkeleton lines={3} />
+            <CardSkeleton lines={5} />
+          </>
+        ) : (
+          <>
+          {/* Gastos fijos */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">Gastos fijos</h3>
+              <Link href="/movimientos" className="text-xs text-gray-400 hover:text-gray-700">Movimientos</Link>
             </div>
-          )}
+            <p className="text-2xl font-semibold mt-1 tracking-tight text-gray-900 break-words"
+               style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+              {formatCurrency(fixedTotal)}
+            </p>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              {fixedTx.length} {fixedTx.length === 1 ? 'gasto fijo' : 'gastos fijos'} en {MESES[month - 1]}
+              {expenses > 0 && fixedTotal > 0 && <> · {Math.round((fixedTotal / expenses) * 100)}% del gasto</>}
+            </p>
 
-          {fixedPending.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <p className="text-[11px] text-amber-700 mb-1.5">
-                Faltan cargar (estaban en {prevMonthName}):
-              </p>
-              <div className="divide-y divide-gray-100">
-                {fixedPending.map(t => (
-                  <div key={t.id} className="flex items-center justify-between py-1.5 text-sm">
-                    <span className="text-gray-600 truncate">{t.description}</span>
-                    <span className="text-gray-400 flex-shrink-0 ml-3"
+            {/* Cada gasto fijo cargado este mes, del más caro al más barato. */}
+            {fixedTx.length > 0 && (
+              <div className="mt-3 divide-y divide-gray-100">
+                {[...fixedTx].sort((a, b) => Number(b.amount) - Number(a.amount)).map(t => (
+                  <div key={t.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+                    <div className="min-w-0">
+                      <p className="text-gray-700 truncate">
+                        <span className="text-emerald-600 mr-1">✓</span>{t.description}
+                      </p>
+                      <p className="text-[11px] text-gray-400 truncate">
+                        {shortDate(t.date)}{t.category_name && <> · {t.category_name}</>}
+                      </p>
+                    </div>
+                    <span className="text-gray-900 flex-shrink-0"
                           style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
                       {formatCurrency(Number(t.amount))}
                     </span>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {fixedTx.length === 0 && fixedPending.length === 0 && (
-            <p className="text-xs text-gray-400 mt-3">
-              Marcá tus gastos fijos (expensas, luz, internet...) con el ícono ↻ en Movimientos,
-              o tildando &quot;Gasto fijo&quot; al cargarlos.
-            </p>
-          )}
-        </div>
-
-        {/* Presupuesto */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-900">
-              Presupuesto de {MESES[month - 1]}
-            </h3>
-            <Link href="/presupuestos" className="text-xs text-gray-400 hover:text-gray-700">Ver</Link>
-          </div>
-          {budgetRows.length === 0 ? (
-            <p className="text-sm text-gray-300 py-4 text-center">
-              Sin presupuestos definidos
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {budgetRows.map(b => {
-                const over = b.pct > 100
-                const warn = b.pct > 80
-                return (
-                  <div key={b.id}>
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="text-gray-700">{b.category?.name}</span>
-                      <span className={over ? 'text-red-600' : warn ? 'text-amber-600' : 'text-emerald-700'}>
-                        {b.pct.toFixed(0)}%
+            {fixedPending.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-[11px] text-amber-700 mb-1.5">
+                  Faltan cargar (estaban en {prevMonthName}):
+                </p>
+                <div className="divide-y divide-gray-100">
+                  {fixedPending.map(t => (
+                    <div key={t.id} className="flex items-center justify-between py-1.5 text-sm">
+                      <span className="text-gray-600 truncate">{t.description}</span>
+                      <span className="text-gray-400 flex-shrink-0 ml-3"
+                            style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                        {formatCurrency(Number(t.amount))}
                       </span>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${over ? 'bg-red-600' : warn ? 'bg-amber-500' : 'bg-emerald-700'}`}
-                        style={{ width: `${Math.min(b.pct, 100)}%` }} />
-                    </div>
-                    <p className="text-[11px] text-gray-400 mt-1"
-                       style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                      {formatCurrency(b.spent)} de {formatCurrency(b.amount)}
-                    </p>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Últimos movimientos */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-gray-900">Últimos movimientos</h3>
-            <Link href="/movimientos" className="text-xs text-gray-400 hover:text-gray-700">
-              Ver {txCount}
-            </Link>
-          </div>
-          {recent.length === 0 ? (
-            <p className="text-sm text-gray-300 py-4 text-center">Sin movimientos</p>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {recent.map(t => (
-                <div key={t.id} className="flex items-center justify-between py-2.5">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <p className="text-sm text-gray-800 truncate">{t.description}</p>
-                      {t.is_recurring && <RecurringBadge />}
-                    </div>
-                    <p className="text-[11px] text-gray-400">
-                      {t.category_name || 'Sin categoría'} · {t.date}
-                    </p>
-                  </div>
-                  <span className={`text-sm flex-shrink-0 ml-3 ${
-                    t.type === 'income' ? 'text-emerald-700' : 'text-red-600'
-                  }`} style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
-                    {t.type === 'income' ? '+' : '−'}{formatCurrency(Number(t.amount))}
-                  </span>
+                  ))}
                 </div>
-              ))}
+              </div>
+            )}
+
+            {fixedTx.length === 0 && fixedPending.length === 0 && (
+              <p className="text-xs text-gray-400 mt-3">
+                Marcá tus gastos fijos (expensas, luz, internet...) con el ícono ↻ en Movimientos,
+                o tildando &quot;Gasto fijo&quot; al cargarlos.
+              </p>
+            )}
+          </div>
+
+          {/* Presupuesto */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Presupuesto de {MESES[month - 1]}
+              </h3>
+              <Link href="/presupuestos" className="text-xs text-gray-400 hover:text-gray-700">Ver</Link>
             </div>
-          )}
-        </div>
+            {budgetRows.length === 0 ? (
+              <p className="text-sm text-gray-300 py-4 text-center">
+                Sin presupuestos definidos
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {budgetRows.map(b => {
+                  const over = b.pct > 100
+                  const warn = b.pct > 80
+                  return (
+                    <div key={b.id}>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="text-gray-700">{b.category?.name}</span>
+                        <span className={over ? 'text-red-600' : warn ? 'text-amber-600' : 'text-emerald-700'}>
+                          {b.pct.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${over ? 'bg-red-600' : warn ? 'bg-amber-500' : 'bg-emerald-700'}`}
+                          style={{ width: `${Math.min(b.pct, 100)}%` }} />
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-1"
+                         style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                        {formatCurrency(b.spent)} de {formatCurrency(b.amount)}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Últimos movimientos */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-900">Últimos movimientos</h3>
+              <Link href="/movimientos" className="text-xs text-gray-400 hover:text-gray-700">
+                Ver {txCount}
+              </Link>
+            </div>
+            {recent.length === 0 ? (
+              <p className="text-sm text-gray-300 py-4 text-center">Sin movimientos</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {recent.map(t => (
+                  <div key={t.id} className="flex items-center justify-between py-2.5">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm text-gray-800 truncate">{t.description}</p>
+                        {t.is_recurring && <RecurringBadge />}
+                      </div>
+                      <p className="text-[11px] text-gray-400">
+                        {t.category_name || 'Sin categoría'} · {t.date}
+                      </p>
+                    </div>
+                    <span className={`text-sm flex-shrink-0 ml-3 ${
+                      t.type === 'income' ? 'text-emerald-700' : 'text-red-600'
+                    }`} style={{ fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                      {t.type === 'income' ? '+' : '−'}{formatCurrency(Number(t.amount))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          </>
+        )}
       </div>
     </div>
   )

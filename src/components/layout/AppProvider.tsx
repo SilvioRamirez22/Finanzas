@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAppStore } from '@/store/useAppStore'
 import { getAccounts, getCategories, getPaymentMethods, getBudgets } from '@/lib/api'
@@ -15,7 +15,7 @@ const BOUNCE_KEY = 'finanzas:auth-bounce'
 export default function AppProvider({ children }: { children: React.ReactNode }) {
   const {
     setProfile, setAccounts, setCategories, setPaymentMethods, setBudgets,
-    quickAddOpen, setQuickAddOpen
+    quickAddOpen, setQuickAddOpen, dataVersion, notifyDataChanged
   } = useAppStore()
   const [ready, setReady] = useState(false)
   const [stuck, setStuck] = useState(false)
@@ -94,10 +94,25 @@ export default function AppProvider({ children }: { children: React.ReactNode })
     return () => { cancelled = true }
   }, [])
 
-  async function handleTransactionSuccess() {
-    const accounts = await getAccounts()
-    setAccounts(accounts)
-  }
+  // Cada vez que cambia un movimiento, los saldos de las cuentas tambien.
+  // Un solo lugar que los refresca, asi ninguna pantalla se tiene que acordar.
+  const firstVersion = useRef(dataVersion)
+  useEffect(() => {
+    if (dataVersion === firstVersion.current) return
+    getAccounts().then(setAccounts).catch(e => console.error('Error refrescando cuentas:', e))
+  }, [dataVersion])
+
+  // La app se usa desde varios dispositivos: si esta pestania estuvo un rato en
+  // segundo plano, al volver recargamos por si se cargo algo desde otro lado.
+  useEffect(() => {
+    let hiddenAt = 0
+    function onVisibility() {
+      if (document.visibilityState === 'hidden') hiddenAt = Date.now()
+      else if (hiddenAt && Date.now() - hiddenAt > 60_000) notifyDataChanged()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
 
   if (stuck) {
     return (
@@ -136,7 +151,6 @@ export default function AppProvider({ children }: { children: React.ReactNode })
       <QuickAddModal
         open={quickAddOpen}
         onClose={() => setQuickAddOpen(false)}
-        onSuccess={handleTransactionSuccess}
       />
     </AppLayout>
   )

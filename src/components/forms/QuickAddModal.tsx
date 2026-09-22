@@ -10,6 +10,34 @@ import { todayISO, formatCurrency } from '@/lib/format'
 import toast from 'react-hot-toast'
 import type { TransactionFormData, TransactionFull } from '@/types'
 
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+
+// "2026-09" de una fecha "2026-09-22".
+const monthKey = (iso: string) => iso.slice(0, 7)
+
+// "septiembre", o "septiembre 2025" si no es el año de `refYear`.
+function monthName(year: number, month: number, refYear: number) {
+  return year === refYear ? MESES[month - 1] : `${MESES[month - 1]} ${year}`
+}
+
+// La fecha que conviene sugerir para cargar algo en el mes que se está
+// mirando: hoy si es este mes, el último día si es un mes pasado, el primero
+// si es uno futuro.
+function suggestedDate(year: number, month: number) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const today = todayISO()
+  const key = `${year}-${pad(month)}`
+  if (monthKey(today) === key) return today
+  if (key < monthKey(today)) return `${key}-${pad(new Date(year, month, 0).getDate())}`
+  return `${key}-01`
+}
+
+// "31 de agosto"
+function dayName(iso: string) {
+  const [, m, d] = iso.split('-').map(Number)
+  return `${d} de ${MESES[m - 1]}`
+}
+
 const schema = z.object({
   type: z.enum(['income', 'expense', 'transfer']),
   amount: z.string().min(1, 'Ingresá un monto').refine(v => parseFloat(v) > 0, 'Debe ser mayor a 0'),
@@ -56,7 +84,7 @@ function formFromTransaction(t: TransactionFull): TransactionFormData {
 
 export default function QuickAddModal({ open, onClose, onSuccess, transaction }: QuickAddProps) {
   const isEdit = !!transaction
-  const { accounts, profile, categoriesWithSubs } = useAppStore()
+  const { accounts, profile, categoriesWithSubs, selectedMonth, setSelectedMonth, notifyDataChanged } = useAppStore()
   const [submitting, setSubmitting] = useState(false)
   // Al editar cuotas: copiar los cambios a todo el grupo o solo a esta cuota.
   const [applyToAll, setApplyToAll] = useState(true)
@@ -78,6 +106,18 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
   const hasInstallments = watch('has_installments')
   const amountWatch = watch('amount')
   const installmentsWatch = watch('installments_total')
+  const dateWatch = watch('date') || ''
+
+  // El mes que se está mirando y el de la fecha del movimiento pueden no
+  // coincidir (por ejemplo, revisando agosto y cargando con la fecha de hoy).
+  // Si no se avisa, el movimiento se guarda y "desaparece" de la pantalla.
+  const pad2 = (n: number) => String(n).padStart(2, '0')
+  const viewKey = `${selectedMonth.year}-${pad2(selectedMonth.month)}`
+  const dateYear = Number(dateWatch.slice(0, 4))
+  const dateMonth = Number(dateWatch.slice(5, 7))
+  const dateChanged = !transaction || transaction.date !== dateWatch
+  const outsideView = /^\d{4}-\d{2}/.test(dateWatch) && monthKey(dateWatch) !== viewKey && dateChanged
+  const viewDate = suggestedDate(selectedMonth.year, selectedMonth.month)
 
   useEffect(() => {
     if (open) {
@@ -131,11 +171,16 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
         } else {
           await updateTransactionFromForm(transaction.id, data)
         }
-        toast.success('Cambios guardados')
+        notifySaved('Cambios guardados', data.date)
       } else {
         await createTransaction(data, profile.id)
-        toast.success(data.type === 'income' ? 'Ingreso registrado' : 'Gasto registrado')
+        notifySaved(
+          data.type === 'income' ? 'Ingreso registrado'
+            : data.type === 'expense' ? 'Gasto registrado' : 'Transferencia registrada',
+          data.date
+        )
       }
+      notifyDataChanged()
       onSuccess?.()
       onClose()
     } catch (e: any) {
@@ -143,6 +188,28 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // Si lo que se guardó cae fuera del mes que se está mirando, el aviso lo dice
+  // y ofrece ir a ese mes. Si cae adentro, el aviso normal alcanza.
+  function notifySaved(what: string, date: string) {
+    if (monthKey(date) === viewKey) {
+      toast.success(what)
+      return
+    }
+    const y = Number(date.slice(0, 4)), m = Number(date.slice(5, 7))
+    const name = monthName(y, m, selectedMonth.year)
+    toast.success(t => (
+      <span className="flex items-center gap-3">
+        <span>{what} en {name}</span>
+        <button
+          onClick={() => { setSelectedMonth({ year: y, month: m }); toast.dismiss(t.id) }}
+          className="font-semibold underline underline-offset-2 whitespace-nowrap py-1"
+        >
+          Ver {MESES[m - 1]}
+        </button>
+      </span>
+    ), { duration: 6000 })
   }
 
   if (!open) return null
@@ -409,6 +476,26 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
                 </span>
               </span>
             </label>
+          )}
+
+          {/* Aviso de mes: se va a guardar fuera del mes que se está mirando. */}
+          {outsideView && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-sm" role="status">
+              <p className="text-amber-900">
+                {isEdit ? 'Se va a mover a ' : 'Se va a guardar en '}
+                <b>{monthName(dateYear, dateMonth, selectedMonth.year)}</b>
+                <span className="text-amber-800"> · estás viendo {monthName(selectedMonth.year, selectedMonth.month, dateYear)}</span>
+              </p>
+              {!isEdit && (
+                <button
+                  type="button"
+                  onClick={() => setValue('date', viewDate, { shouldDirty: true })}
+                  className="mt-1.5 font-medium text-amber-900 underline underline-offset-2 py-1"
+                >
+                  Usar {dayName(viewDate)}
+                </button>
+              )}
+            </div>
           )}
 
           {/* Submit */}

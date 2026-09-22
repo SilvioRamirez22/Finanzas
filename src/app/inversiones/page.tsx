@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { getInvestments, upsertInvestment } from '@/lib/api'
-import { formatCurrency, formatDate, formatPct } from '@/lib/format'
+import { formatCurrency, formatDate, formatPct, todayISO } from '@/lib/format'
 import { Plus, TrendingUp, TrendingDown, Edit2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Investment, InvestmentType } from '@/types'
@@ -156,7 +156,7 @@ function InvestmentForm({ investment, onClose, onSuccess }: {
     } : {
       type: 'cedear' as InvestmentType,
       currency: 'ARS',
-      buy_date: new Date().toISOString().split('T')[0],
+      buy_date: todayISO(),
     },
   })
   const [submitting, setSubmitting] = useState(false)

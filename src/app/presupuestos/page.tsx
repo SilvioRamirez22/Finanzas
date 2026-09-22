@@ -23,7 +23,7 @@ function shiftMonth(y: number, m: number, delta: number) {
 }
 
 export default function PresupuestosPage() {
-  const { categories, budgets, setBudgets, selectedMonth } = useAppStore()
+  const { categories, budgets, setBudgets, selectedMonth, dataVersion } = useAppStore()
   const { year, month } = selectedMonth
 
   const [cats, setCats] = useState<CategoryExpense[]>([])
@@ -61,7 +61,8 @@ export default function PresupuestosPage() {
     }
   }, [year, month, setBudgets])
 
-  useEffect(() => { load() }, [load])
+  // dataVersion: recargar cuando se guarda, edita o borra un movimiento.
+  useEffect(() => { load() }, [load, dataVersion])
 
   // Filas con presupuesto
   const rows = useMemo(() => {

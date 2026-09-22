@@ -84,9 +84,14 @@ el atajo "Nuevo gasto" de la pantalla de inicio, que no hace nada.
 ## Plan de trabajo sugerido
 
 ### Etapa 1 — Que no mienta (2-3 sesiones)
-- A1: un solo origen de verdad para los movimientos del mes + actualización optimista.
-- P1/P2: skeletons y estado de error en las cuatro pantallas de lectura.
-- A2: aviso de mes al guardar.
+- ✅ A1: las pantallas se recargan solas al crear, editar o borrar (`dataVersion` +
+  `useMonthData`), y también al volver a la app después de un rato (por si se cargó algo desde
+  otro dispositivo). Sin actualización optimista todavía.
+- ◐ P1/P2: esqueleto y estado de error en dashboard y movimientos. Falta presupuestos (se
+  rehace en la etapa 4).
+- ✅ A2: aviso de mes en el formulario con "Usar 31 de agosto", y "Ver septiembre" en el aviso
+  de guardado. Además, "hoy" se calculaba en UTC: de noche ya era el día siguiente.
+- ✅ D10 y X6 (commit `91bf5b4`).
 - D1/D2: confirmar contra producción y alinear (copy, API y SQL).
 - P3/P4: usar las RPC que ya existen y matar las 6 consultas en serie de presupuestos.
 

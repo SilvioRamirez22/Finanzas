@@ -83,6 +83,11 @@ export function pluralize(n: number, singular: string, plural: string): string {
 }
 
 // ---- Hoy como string ISO ----
+// Fecha de hoy en la hora local. toISOString() da la fecha en UTC: en
+// Argentina, despues de las 21 ya es "mañana", y el ultimo dia del mes un
+// gasto de la noche se guardaba en el mes siguiente.
 export function todayISO(): string {
-  return new Date().toISOString().split('T')[0]
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }

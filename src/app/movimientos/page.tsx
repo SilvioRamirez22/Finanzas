@@ -1,12 +1,14 @@
 'use client'
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Repeat } from 'lucide-react'
-import { getTransactions, deleteTransaction, deleteInstallmentGroup, updateTransaction, getAccounts } from '@/lib/api'
+import { getTransactions, deleteTransaction, deleteInstallmentGroup, updateTransaction } from '@/lib/api'
 import QuickAddModal from '@/components/forms/QuickAddModal'
 import { useAppStore } from '@/store/useAppStore'
 import { formatCurrency } from '@/lib/format'
 import { exportTransactionsToExcel } from '@/lib/exportImport'
 import RecurringBadge from '@/components/RecurringBadge'
+import { ErrorState, SkeletonLine } from '@/components/ui/States'
+import { useMonthData } from '@/lib/useMonthData'
 import toast from 'react-hot-toast'
 import type { TransactionFull } from '@/types'
 
@@ -25,15 +27,22 @@ function dayLabel(iso: string) {
   return `${DIAS[dt.getDay()]} ${d} de ${MESES[m - 1]}`
 }
 
+async function loadMonth(year: number, month: number) {
+  const { from, to } = monthRange(year, month)
+  const { data } = await getTransactions({ date_from: from, date_to: to }, 5000, 0)
+  return data || []
+}
+
 type TypeFilter = 'all' | 'expense' | 'income' | 'recurring'
 type AmountFilter = 'any' | 'gt50' | 'gt100' | 'gt500'
 
 export default function MovimientosPage() {
-  const { accounts, categories, selectedMonth, setQuickAddOpen, setAccounts } = useAppStore()
+  const { accounts, categories, selectedMonth, setQuickAddOpen, notifyDataChanged } = useAppStore()
   const { year, month } = selectedMonth
 
-  const [all, setAll] = useState<TransactionFull[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data, error, reload, setData: setAll } = useMonthData(loadMonth)
+  const all = useMemo(() => data ?? [], [data])
+  const loading = data === null
   // Movimiento abierto en el formulario de edición (null = cerrado).
   const [editing, setEditing] = useState<TransactionFull | null>(null)
 
@@ -44,19 +53,6 @@ export default function MovimientosPage() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [amountFilter, setAmountFilter] = useState<AmountFilter>('any')
   const [grouped, setGrouped] = useState(true)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { from, to } = monthRange(year, month)
-      const { data } = await getTransactions({ date_from: from, date_to: to }, 5000, 0)
-      setAll(data || [])
-    } finally {
-      setLoading(false)
-    }
-  }, [year, month])
-
-  useEffect(() => { load() }, [load])
 
   // Aplicar filtros en memoria
   const filtered = useMemo(() => {
@@ -111,7 +107,7 @@ export default function MovimientosPage() {
         await deleteTransaction(t.id)
       }
       toast.success('Eliminado')
-      load()
+      notifyDataChanged()
     } catch (e: any) { toast.error(e.message) }
   }
 
@@ -133,6 +129,8 @@ export default function MovimientosPage() {
 
   return (
     <div className="space-y-3">
+      {error && data && <ErrorState compact onRetry={reload} />}
+
       {/* Barra de filtros.
           En el celular: buscador a lo ancho y los selects en 2 columnas, en vez
           de una fila que se desarmaba y empujaba la pagina a lo ancho. */}
@@ -234,8 +232,10 @@ export default function MovimientosPage() {
           <span className="w-14" />
         </div>
 
-        {loading ? (
-          <p className="text-sm text-gray-400 py-10 text-center">Cargando...</p>
+        {error && !data ? (
+          <ErrorState onRetry={reload} />
+        ) : loading ? (
+          <RowsSkeleton />
         ) : filtered.length === 0 ? (
           <p className="text-sm text-gray-400 py-10 text-center">
             Sin movimientos con estos filtros
@@ -274,12 +274,25 @@ export default function MovimientosPage() {
         open={!!editing}
         transaction={editing}
         onClose={() => setEditing(null)}
-        onSuccess={async () => {
-          load()
-          // El monto o la cuenta pueden haber cambiado: refrescar saldos.
-          setAccounts(await getAccounts())
-        }}
       />
+    </div>
+  )
+}
+
+// Filas grises con la forma de un día de movimientos, mientras carga el mes.
+function RowsSkeleton() {
+  return (
+    <div aria-hidden="true">
+      <div className="px-4 md:px-5 py-2 bg-gray-50/70 border-b border-gray-100">
+        <SkeletonLine className="h-3 w-32" />
+      </div>
+      {Array.from({ length: 6 }, (_, i) => (
+        <div key={i} className="flex items-center gap-3 px-4 md:px-5 py-3 border-b border-gray-100">
+          <SkeletonLine className="w-5 h-5 flex-shrink-0" />
+          <SkeletonLine className={`h-4 ${i % 2 ? 'w-1/3' : 'w-1/2'}`} />
+          <SkeletonLine className="h-4 w-20 ml-auto" />
+        </div>
+      ))}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 // lib/exportImport.ts
 import * as XLSX from 'xlsx'
 import { TransactionFull } from '@/types'
-import { formatCurrency } from './format'
+import { formatCurrency, todayISO } from './format'
 
 // ============================================================
 // EXPORTACIÓN
@@ -33,7 +33,7 @@ export function exportTransactionsToExcel(transactions: TransactionFull[], filen
     { wch: 10 }, { wch: 12 }, { wch: 30 },
   ]
 
-  XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`)
+  XLSX.writeFile(wb, `${filename}_${todayISO()}.xlsx`)
 }
 
 export function exportTransactionsToCSV(transactions: TransactionFull[], filename = 'finanzas') {
@@ -55,7 +55,7 @@ export function exportTransactionsToCSV(transactions: TransactionFull[], filenam
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`
+  a.download = `${filename}_${todayISO()}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -121,7 +121,7 @@ export function mapImportRows(
         if (appField) mapped[appField] = row[fileColumn]
       })
       return {
-        date: String(mapped.date || '').split('T')[0] || new Date().toISOString().split('T')[0],
+        date: String(mapped.date || '').split('T')[0] || todayISO(),
         description: String(mapped.description || 'Importado'),
         amount: Math.abs(parseFloat(String(mapped.amount || '0'))),
         type: mapped.type
