@@ -101,7 +101,7 @@ export default function SeguimientoContent({ series, range, selKey, setSelKey, c
 
   return (
     <>
-      <div className="grid lg:grid-cols-2 gap-3 md:gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 items-start">
         <div className="space-y-3 md:space-y-4">
           <Averages closed={closed} previous={closedPrev} />
           <IncomeExpenseCard months={months} selected={selected} onSelect={setSelKey} />
@@ -478,7 +478,7 @@ function CategoriesCard({ series, catId, setCatId, catName }: {
       <h2 className="text-sm font-semibold text-ink-900">Por categoría</h2>
       <p className="text-xs text-ink-500 mt-1">Cada mes contra el promedio de esa categoría. Tocá una para ver su evolución.</p>
 
-      <div className="grid md:grid-cols-[1fr_340px] gap-4 mt-3">
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_340px] gap-4 mt-3">
         <div className="space-y-1 overflow-x-auto">
           <div className="grid grid-cols-[minmax(76px,160px)_repeat(6,minmax(36px,1fr))] gap-1 min-w-[312px]">
             <span />

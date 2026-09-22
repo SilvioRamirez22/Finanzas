@@ -68,7 +68,7 @@ export default function SeguimientoPage() {
       </div>
 
       {!series ? (
-        <div className="grid lg:grid-cols-2 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
           <CardSkeleton lines={3} big />
           <CardSkeleton lines={5} />
           <CardSkeleton lines={4} />

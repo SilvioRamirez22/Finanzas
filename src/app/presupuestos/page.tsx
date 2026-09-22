@@ -53,7 +53,7 @@ export default function PresupuestosPage() {
 
   if (!data || !summary) {
     return (
-      <div className="grid lg:grid-cols-[1fr_400px] gap-3 md:gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-3 md:gap-4">
         <div className="space-y-3"><CardSkeleton big lines={4} /><CardSkeleton lines={6} /></div>
         <CardSkeleton lines={5} />
       </div>
@@ -82,7 +82,7 @@ export default function PresupuestosPage() {
   const name = (id: string) => id === 'none' ? 'Sin categoría' : cat(id)?.name || 'Otra'
 
   return (
-    <div className="grid lg:grid-cols-[1fr_400px] gap-3 md:gap-4 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-3 md:gap-4 items-start">
       <div className="space-y-3 md:space-y-4">
         {error && <ErrorState compact onRetry={reload} />}
         {data.plans.missing && <MigrationNotice />}

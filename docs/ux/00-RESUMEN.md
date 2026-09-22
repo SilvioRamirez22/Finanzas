@@ -133,7 +133,11 @@ que no aparecen (monto editable, mismo día del mes) y, como casi nada está mar
 lo que se repitió una vez por mes los últimos 3 meses con montos parecidos; esos vienen
 destildados y al cargarlos quedan marcados. Carga en lote con Deshacer. Lógica en `lib/fixed.ts`,
 la misma que usan el Resumen y el plan para "faltan cargar".
-Falta de fase 2: alertas en la tarjeta "Atención".
+✅ Tarjeta "Atención" en el Resumen (2026-09-22), arriba de todo y solo si hay algo: categorías
+excedidas, saldos sin punto de partida (D10), fijos sin cargar, categorías adelantadas al ritmo
+del mes y gastos sin categoría (A4, con filtro "Sin categoría" en Movimientos). Cada una con su
+acción. De paso: las grillas de Resumen, Presupuesto y Seguimiento usan `minmax(0,1fr)`; sin eso
+un texto largo estiraba la columna más que el celular.
 
 ### Seguimiento (`07`)
 ✅ (2026-09-22) `/seguimiento` reemplaza a `/historico` (que redirige). En el celular va en la barra

@@ -11,6 +11,7 @@ import { useMonthData } from '@/lib/useMonthData'
 import { summarizeMonth, monthProgress } from '@/lib/budget'
 import { pendingFixed, isFixed } from '@/lib/fixed'
 import LoadFixedSheet from '@/components/forms/LoadFixedSheet'
+import AttentionCard, { type AttentionItem } from '@/components/dashboard/AttentionCard'
 import type { TransactionFull, CategoryExpense } from '@/types'
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -146,14 +147,84 @@ export default function DashboardPage() {
     Number(a.initial_balance) === 0 && a.current_balance < 0
   )
 
+  // ---- Atención: lo que pide hacer algo, de lo más grave a lo menos ----
+  const catName = (id: string) => categories.find(c => c.id === id)?.name || 'Sin categoría'
+  const money = (n: number) => formatCurrency(Math.round(n))
+  const attention: AttentionItem[] = []
+  if (data) {
+    if (overCats.length > 0) {
+      const excess = overCats.reduce((s, l) => s + l.variable - l.budget, 0)
+      attention.push({
+        key: 'over', tone: 'neg', icon: 'over',
+        title: overCats.length === 1
+          ? `${catName(overCats[0].id)} se pasó del plan (+${money(excess)})`
+          : `${overCats.length} categorías se pasaron del plan (+${money(excess)})`,
+        detail: overCats.length > 1 ? overCats.map(l => `${catName(l.id)} +${money(l.variable - l.budget)}`).join(' · ') : undefined,
+        action: { label: 'Ver', href: '/presupuestos' },
+      })
+    }
+    if (saldosSinConfigurar) {
+      attention.push({
+        key: 'balance', tone: 'warn', icon: 'balance',
+        title: 'Los saldos no tienen punto de partida',
+        detail: 'Escribí cuánta plata hay hoy en cada cuenta',
+        action: { label: 'Configurar', href: '/cuentas' },
+      })
+    }
+    const fixedMissing = pendingFixed(prevAllTx, allTx, year, month)
+    if (fixedMissing.length > 0) {
+      attention.push({
+        key: 'fixed', tone: 'warn', icon: 'fixed',
+        title: `${fixedMissing.length === 1 ? '1 fijo sin cargar' : `${fixedMissing.length} fijos sin cargar`} en ${MESES[month - 1]}`,
+        detail: fixedMissing.map(c => c.source.description).join(', '),
+        action: { label: 'Cargar', onClick: () => setLoadingFixed(true) },
+      })
+    }
+    // Van más rápido que el mes: con el tope a este ritmo, se pasan antes de fin de mes.
+    if (planProgress > 0 && planProgress < 1) {
+      const ahead = plan.lines
+        .filter(l => l.budget > 0 && l.variable <= l.budget && l.variable / l.budget > planProgress + 0.15)
+        .sort((a, b) => b.variable / b.budget - a.variable / a.budget)
+      if (ahead.length > 0) {
+        const l = ahead[0]
+        attention.push({
+          key: 'pace', tone: 'warn', icon: 'pace',
+          title: ahead.length === 1
+            ? `${catName(l.id)} va adelantada`
+            : `${ahead.length} categorías van adelantadas`,
+          detail: `${catName(l.id)}: ${Math.round((l.variable / l.budget) * 100)} % del tope con el ${Math.round(planProgress * 100)} % del mes`
+            + (ahead.length > 1 ? ` · también ${ahead.slice(1, 3).map(a => catName(a.id)).join(', ')}` : ''),
+          action: { label: 'Ver', href: '/presupuestos' },
+        })
+      }
+    }
+    // Solo gastos: un ingreso sin categoría no desarma ningún reporte (A4).
+    const uncategorized = allTx.filter(t => t.type === 'expense' && !t.category_id && t.status !== 'cancelled')
+    if (uncategorized.length > 0) {
+      attention.push({
+        key: 'uncategorized', tone: 'info', icon: 'uncategorized',
+        title: `${uncategorized.length === 1 ? '1 gasto' : `${uncategorized.length} gastos`} sin categoría`,
+        detail: `${money(uncategorized.reduce((s, t) => s + Number(t.amount), 0))} que no aparecen en los gastos por categoría`,
+        action: { label: 'Categorizar', href: '/movimientos?categoria=sin' },
+      })
+    }
+  }
+
   // Sin datos del mes y con error: no hay nada útil para mostrar.
   if (error && !data) return <ErrorState onRetry={reload} />
 
   return (
-    <div className="grid lg:grid-cols-[1fr_380px] gap-4">
+    // minmax(0, 1fr): sin esto, un texto largo que no se corta estira la
+    // columna más allá del ancho del celular.
+    <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_380px] gap-4">
       {/* Falló una recarga en segundo plano: los números de abajo son los de antes. */}
       {error && data && (
         <div className="lg:col-span-2"><ErrorState compact onRetry={reload} /></div>
+      )}
+
+      {/* Atención: arriba de todo y a lo ancho, solo si hay algo que hacer. */}
+      {attention.length > 0 && (
+        <div className="lg:col-span-2"><AttentionCard items={attention} /></div>
       )}
 
       {/* ===== COLUMNA IZQUIERDA ===== */}

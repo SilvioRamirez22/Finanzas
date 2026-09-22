@@ -51,7 +51,10 @@ export default function MovimientosPage() {
 
   // Filtros
   const [q, setQ] = useState('')
-  const [catFilter, setCatFilter] = useState('')
+  // ?categoria=sin (desde "Atención" en el Resumen) abre filtrando lo que no tiene categoría.
+  const [catFilter, setCatFilter] = useState(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('categoria') === 'sin' ? 'none' : ''
+  )
   const [accFilter, setAccFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [amountFilter, setAmountFilter] = useState<AmountFilter>('any')
@@ -63,7 +66,9 @@ export default function MovimientosPage() {
       if (typeFilter === 'recurring') {
         if (!t.is_recurring) return false
       } else if (typeFilter !== 'all' && t.type !== typeFilter) return false
-      if (catFilter && t.category_id !== catFilter) return false
+      if (catFilter === 'none') {
+        if (t.type === 'transfer' || t.category_id) return false
+      } else if (catFilter && t.category_id !== catFilter) return false
       if (accFilter && t.account_id !== accFilter) return false
       if (q) {
         const s = q.toLowerCase()
@@ -169,6 +174,7 @@ export default function MovimientosPage() {
           <select value={catFilter} onChange={e => setCatFilter(e.target.value)}
             className="min-w-0 border border-line rounded-lg px-3 py-2 text-sm bg-surface outline-none focus:border-brand">
             <option value="">Todas las categorías</option>
+            <option value="none">Sin categoría</option>
             {rootCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <select value={accFilter} onChange={e => setAccFilter(e.target.value)}
