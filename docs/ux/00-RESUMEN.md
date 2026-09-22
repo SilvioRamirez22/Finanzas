@@ -96,6 +96,9 @@ el atajo "Nuevo gasto" de la pantalla de inicio, que no hace nada.
 - P3/P4: usar las RPC que ya existen y matar las 6 consultas en serie de presupuestos.
 
 ### Etapa 2 — Una sola pasada visual y de accesibilidad
+◐ Tokens de color en `globals.css` + `tailwind.config` (el borde se llama `line`, para no chocar
+con la utilidad `border` de Tailwind), foco visible global y `prefers-reduced-motion`. Los usan la
+hoja de carga y los estados; falta migrar las pantallas y activar el modo oscuro.
 - Tokens en `globals.css` + `tailwind.config` (`02`).
 - `focus-visible` global, escala de grises con contraste, áreas táctiles de 44 px.
 - X6: acciones visibles en táctil en cuentas y categorías.
@@ -103,9 +106,13 @@ el atajo "Nuevo gasto" de la pantalla de inicio, que no hace nada.
 - Borrar el `@import` de Tabler y mapear los íconos de la base a lucide.
 
 ### Etapa 3 — El flujo de carga (`03`)
-`Sheet` con contrato de diálogo → teclado numérico propio → chips de categoría y cuenta con
-memoria → "Más opciones" con medio de pago, cuotas, fijo y notas → guardar y cargar otro +
-deshacer.
+✅ Hecho (2026-09-22): `Sheet` con contrato de diálogo, teclado propio con `000`, chips de
+categoría (por uso en 90 días) y subcategoría, fecha en chips con el día del mes visible, cuenta
+preelegida (la última usada), "Más opciones" con descripción autocompletada, medio de pago,
+cuotas, fijo y notas, "Guardar y otro", deshacer al crear y al borrar (sin `confirm()`).
+Distinto de la spec: la última cuenta sale de Supabase y no de `localStorage` (vale en todos los
+dispositivos); sin cola offline (guardaría datos en el navegador) y sin actualización optimista
+(la recarga en segundo plano de la etapa 1 alcanza por ahora).
 
 ### Etapa 4 — Presupuesto (`05`)
 Fase 0 (modelo por mes + las dos RPC) → Fase 1 (vista del mes con ritmo, editor con "sin

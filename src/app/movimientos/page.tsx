@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
-import { Repeat } from 'lucide-react'
-import { getTransactions, deleteTransaction, deleteInstallmentGroup, updateTransaction } from '@/lib/api'
+import { Repeat, Trash2 } from 'lucide-react'
+import { getTransactions, deleteTransactionsForUndo, restoreTransactions, updateTransaction } from '@/lib/api'
 import QuickAddModal from '@/components/forms/QuickAddModal'
 import { useAppStore } from '@/store/useAppStore'
 import { formatCurrency } from '@/lib/format'
@@ -9,6 +9,7 @@ import { exportTransactionsToExcel } from '@/lib/exportImport'
 import RecurringBadge from '@/components/RecurringBadge'
 import { ErrorState, SkeletonLine } from '@/components/ui/States'
 import { useMonthData } from '@/lib/useMonthData'
+import Sheet from '@/components/ui/Sheet'
 import toast from 'react-hot-toast'
 import type { TransactionFull } from '@/types'
 
@@ -45,6 +46,8 @@ export default function MovimientosPage() {
   const loading = data === null
   // Movimiento abierto en el formulario de edición (null = cerrado).
   const [editing, setEditing] = useState<TransactionFull | null>(null)
+  // Cuota que se quiere borrar: se pregunta si solo esa o todo el grupo.
+  const [deletingGroup, setDeletingGroup] = useState<TransactionFull | null>(null)
 
   // Filtros
   const [q, setQ] = useState('')
@@ -96,19 +99,40 @@ export default function MovimientosPage() {
     return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]))
   }, [filtered])
 
-  async function handleDelete(t: TransactionFull) {
-    if (!confirm(`¿Eliminar "${t.description}"?`)) return
+  // Borrar sin preguntar y con "Deshacer" durante unos segundos, en vez de
+  // confirm() (A5). Las cuotas preguntan antes si es una o todo el grupo.
+  function handleDelete(t: TransactionFull) {
+    if (t.installments_total > 1) setDeletingGroup(t)
+    else remove(t, 'one')
+  }
+
+  async function remove(t: TransactionFull, scope: 'one' | 'group') {
+    setDeletingGroup(null)
     try {
-      if (t.installments_total > 1) {
-        const all = confirm('¿Eliminar todas las cuotas del grupo?')
-        if (all) await deleteInstallmentGroup(t.parent_transaction_id || t.id)
-        else await deleteTransaction(t.id)
-      } else {
-        await deleteTransaction(t.id)
-      }
-      toast.success('Eliminado')
+      const rows = await deleteTransactionsForUndo(
+        scope === 'group' ? { group: t.parent_transaction_id || t.id } : { id: t.id }
+      )
       notifyDataChanged()
-    } catch (e: any) { toast.error(e.message) }
+      const what = scope === 'group' ? `${rows.length} cuotas eliminadas` : 'Movimiento eliminado'
+      toast(tt => (
+        <span className="flex items-center gap-3">
+          <span>{what}</span>
+          <button
+            onClick={async () => {
+              toast.dismiss(tt.id)
+              try {
+                await restoreTransactions(rows)
+                notifyDataChanged()
+                toast.success('Recuperado')
+              } catch (e: any) { toast.error(e.message || 'No se pudo recuperar') }
+            }}
+            className="font-semibold underline underline-offset-2 py-1"
+          >
+            Deshacer
+          </button>
+        </span>
+      ), { duration: 6000 })
+    } catch (e: any) { toast.error(e.message || 'No se pudo eliminar') }
   }
 
   // Marcar / desmarcar como fijo. Se actualiza en pantalla al toque y, si
@@ -270,6 +294,28 @@ export default function MovimientosPage() {
         </p>
       )}
 
+      <Sheet
+        open={!!deletingGroup}
+        title="Eliminar cuotas"
+        onRequestClose={() => setDeletingGroup(null)}
+      >
+        {deletingGroup && (
+          <div className="pb-5 space-y-2">
+            <p className="text-sm text-ink-700 pb-2">
+              “{deletingGroup.description}” es la cuota {deletingGroup.installment_number} de {deletingGroup.installments_total}.
+            </p>
+            <button onClick={() => remove(deletingGroup, 'one')}
+              className="w-full h-12 rounded-xl border border-line text-sm font-medium text-ink-900 hover:bg-surface-2">
+              Solo esta cuota
+            </button>
+            <button onClick={() => remove(deletingGroup, 'group')}
+              className="w-full h-12 rounded-xl bg-neg text-white text-sm font-medium">
+              Las {deletingGroup.installments_total} cuotas
+            </button>
+          </div>
+        )}
+      </Sheet>
+
       <QuickAddModal
         open={!!editing}
         transaction={editing}
@@ -345,9 +391,9 @@ function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
             <Repeat size={14} />
           </button>
         )}
-        <button onClick={e => { e.stopPropagation(); onDelete() }} aria-label="Eliminar"
-          className="text-gray-300 active:text-red-500 px-1 -mr-1 flex-shrink-0 text-sm">
-          ···
+        <button onClick={e => { e.stopPropagation(); onDelete() }} aria-label={`Eliminar ${t.description}`}
+          className="text-ink-500 active:text-neg p-2.5 -my-2 -mr-2.5 flex-shrink-0">
+          <Trash2 size={15} />
         </button>
       </div>
 
@@ -386,9 +432,9 @@ function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
               <Repeat size={14} />
             </button>
           )}
-          <button onClick={e => { e.stopPropagation(); onDelete() }} aria-label="Eliminar"
-            className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all text-sm">
-            ···
+          <button onClick={e => { e.stopPropagation(); onDelete() }} aria-label={`Eliminar ${t.description}`}
+            className="p-1 text-ink-500 hover:text-neg opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all">
+            <Trash2 size={14} />
           </button>
         </div>
       </div>

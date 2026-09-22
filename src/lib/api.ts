@@ -99,7 +99,7 @@ export async function updateTransaction(id: string, updates: Partial<Transaction
 }
 
 // Editar un movimiento ya cargado con los datos del formulario. No toca
-// cuotas, medio de pago ni notas: esos campos no se editan desde ahí.
+// cuotas: eso pasa por updateInstallments.
 export async function updateTransactionFromForm(id: string, form: TransactionFormData) {
   const isTransfer = form.type === 'transfer'
   return updateTransaction(id, {
@@ -112,6 +112,8 @@ export async function updateTransactionFromForm(id: string, form: TransactionFor
     subcategory_id: isTransfer ? null : form.subcategory_id || null,
     transfer_to_account_id: isTransfer ? form.transfer_to_account_id || null : null,
     is_recurring: isTransfer ? false : !!form.is_recurring,
+    payment_method_id: form.payment_method_id || null,
+    notes: form.notes || null,
   })
 }
 
@@ -181,8 +183,8 @@ export async function updateInstallments(
       account_id: fromForm ? form.account_id : row!.account_id,
       category_id: fromForm ? form.category_id || null : row!.category_id,
       subcategory_id: fromForm ? form.subcategory_id || null : row!.subcategory_id,
-      payment_method_id: row ? row.payment_method_id : parent.payment_method_id,
-      notes: row ? row.notes : parent.notes,
+      payment_method_id: fromForm ? form.payment_method_id || null : row!.payment_method_id,
+      notes: fromForm ? form.notes || null : row!.notes,
       amount: fromForm ? amount : row!.amount,
       date: row && (dateUnchanged || !fromForm)
         ? row.date
@@ -214,6 +216,28 @@ export async function deleteInstallmentGroup(parentId: string) {
     .from('transactions')
     .delete()
     .or(`id.eq.${parentId},parent_transaction_id.eq.${parentId}`)
+  if (error) throw error
+}
+
+// Borra y devuelve lo borrado, para poder deshacer con restoreTransactions.
+// group: el id de la primera cuota; borra el grupo entero.
+export async function deleteTransactionsForUndo(target: { id: string } | { group: string }) {
+  const filter = 'group' in target
+    ? `id.eq.${target.group},parent_transaction_id.eq.${target.group}`
+    : `id.eq.${target.id}`
+  const { data, error } = await sb().from('transactions').select('*').or(filter)
+  if (error) throw error
+  const { error: delError } = await sb().from('transactions').delete().or(filter)
+  if (delError) throw delError
+  return data as Transaction[]
+}
+
+// Vuelve a insertar filas borradas, con sus mismos ids. La primera cuota va
+// primero porque las demás la referencian. El trigger de saldos recalcula
+// las cuentas igual que al cargarlas.
+export async function restoreTransactions(rows: Transaction[]) {
+  const sorted = [...rows].sort((a, b) => (a.parent_transaction_id ? 1 : 0) - (b.parent_transaction_id ? 1 : 0))
+  const { error } = await sb().from('transactions').insert(sorted)
   if (error) throw error
 }
 

@@ -22,6 +22,12 @@ Vercel desde `main` en GitHub (`SilvioRamirez22/Finanzas`).
 - `src/store/useAppStore.ts` — estado global. `dataVersion` sube al crear, editar o borrar un
   movimiento (`notifyDataChanged()`); las pantallas se recargan con `useMonthData`.
 - `src/lib/useMonthData.ts` — carga por mes con esqueleto, error y recarga en segundo plano.
+- Colores y tamaños: tokens en `src/app/globals.css`, mapeados en `tailwind.config.ts`
+  (`bg-surface`, `text-ink-500`, `border-line`, `bg-brand`, `text-neg`…). Código nuevo no escribe
+  hex ni `gray-*`. El borde es `line` (no `border`, que choca con la utilidad de Tailwind).
+- `src/components/ui/` — `Sheet` (diálogo), `States` (esqueleto y error).
+- `src/components/forms/QuickAddModal.tsx` — carga y edición de movimientos; aprende de
+  `src/lib/quickAddHints.ts` (últimos 90 días en Supabase).
 
 ## Verificar
 

@@ -5,6 +5,57 @@
 /* Tabler Icons */
 @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css');
 
+/* ============ TOKENS (docs/ux/02-DESIGN-SYSTEM.md) ============ */
+/* Contraste medido sobre --surface. El modo oscuro se agrega cuando todas las
+   pantallas usen estos tokens: antes, quedaría la app mitad clara mitad oscura. */
+:root {
+  --bg: #F5F4F0;
+  --surface: #FFFFFF;
+  --surface-2: #FAF9F6;
+  --border: #E4E1D9;
+  --border-strong: #CFCBC1;
+
+  --ink-900: #1A1A17;  /* 17.4:1 */
+  --ink-700: #454239;  /* 10.0:1 */
+  --ink-500: #6E6B64;  /*  5.3:1: metadata. Nunca gray-400 para texto */
+  --ink-300: #C9C5BC;  /* decorativo, nunca texto */
+
+  --brand: #047857;
+  --brand-ink: #065F46;
+  --brand-soft: #E7F3EE;
+
+  --pos: #0F6B4F;
+  --neg: #B0402B;
+  --warn: #8A5A06;
+  --info: #1E5FA8;
+  --pos-soft: #E6F1EC;
+  --neg-soft: #F7E9E5;
+  --warn-soft: #F6EEDC;
+
+  --ring: #047857;
+}
+
+/* Montos: mismo ancho por dígito, las columnas quedan alineadas. */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* Foco visible con teclado (X1). Más específico que outline-none de Tailwind. */
+a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
+[tabindex]:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+
 /* ============ BASE MÓVIL ============ */
 
 /* El header y varias tablas eran más anchos que la pantalla del celular:
@@ -84,6 +135,14 @@ select {
 }
 
 /* Animaciones */
+@keyframes sheetUp {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-sheet-up {
+  animation: sheetUp .2s cubic-bezier(.2,.8,.2,1);
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
