@@ -143,6 +143,8 @@ sigue funcionando: `CategoryIcon` distingue uno de otro); se eligen en Categorí
 gasto (el de la subcategoría si tiene uno propio). ✅ 003 y 004 corridas en Supabase el 2026-09-27:
 10 madres de gastos; quedaron vacías (0 movimientos) las subcategorías del alta Delivery, Restaurante,
 Supermercado, Gas, Internet y Streaming, y la categoría de ingresos "Ingresos" sin emoji.
+`sql/migrations/005_desactivar_subcategorias_sin_uso.sql` desactiva esas seis (solo si siguen sin
+movimientos). **Pendiente:** correrla en Supabase.
 
 ### Etapa 4 — Presupuesto (`05`)
 ✅ Fase 0 y 1 (2026-09-22). Topes por intervalo sobre `budgets` (sin tabla nueva): "desde este
