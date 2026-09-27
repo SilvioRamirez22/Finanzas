@@ -35,7 +35,8 @@ Vercel desde `main` en GitHub (`SilvioRamirez22/Finanzas`).
   "solo" un mes sin tocar el pasado, resumen del mes). Nunca escribir `budgets` por fuera de
   `planBudgetWrites` + `applyBudgetWrites`.
 - SQL: los cambios de base van numerados en `sql/migrations/` y se corren a mano en el SQL Editor
-  de Supabase. No correr `sql/INSTALAR_TODO.sql` sobre producción (ver D2).
+  de Supabase; tienen que poder correrse dos veces sin romper nada. `sql/INSTALAR_TODO.sql` es la
+  instalación desde cero, seguida de todas las migraciones en orden: no correrlo sobre producción.
 - Modo oscuro: sigue al sistema con `prefers-color-scheme`; se prueba forzando el esquema oscuro
   en el navegador.
 

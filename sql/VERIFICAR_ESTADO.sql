@@ -71,3 +71,18 @@ select currency, count(*) as cuentas, sum(current_balance) as saldo
 from accounts
 where is_active
 group by currency;
+
+-- (g) Categorías con el mismo nombre (rescatado de sql/FIXES.sql, 2026-09-07:
+--     había Celular, Expensas y Luz duplicadas). Unificarlas modifica datos:
+--     se decide mirando esto, no se corre a ciegas.
+select c.name as categoria,
+       c.parent_id is null as es_raiz,
+       count(*) as copias,
+       array_agg((select count(*) from transactions t
+                   where t.category_id = c.id or t.subcategory_id = c.id)
+                 order by c.created_at) as movimientos_por_copia
+from categories c
+where c.is_active
+group by c.name, c.parent_id is null
+having count(*) > 1
+order by copias desc, categoria;

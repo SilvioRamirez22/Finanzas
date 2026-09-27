@@ -165,6 +165,10 @@ que el camino de edición (`updateInstallments`). **El código de la app está b
 del repo es el que está viejo** (ver D2). No hay que tocar nada más que el SQL versionado.
 
 ### D2 · P0 — El SQL del repo no es el que corre en producción
+
+> **Resuelto en el repo el 2026-09-27.** `INSTALAR_TODO.sql` refleja producción (firmas sin
+> `p_user_id`, `trg_set_user_id`, cuotas sin dividir) y se probó instalándolo desde cero en
+> Postgres 16 con las migraciones 001 y 002. Lo que falta es correr la 002 en Supabase.
 `sql/INSTALAR_TODO.sql` vs lo que devuelve `pg_proc` en Supabase
 
 Firmas reales, verificadas:
@@ -558,6 +562,9 @@ frecuente, y "guardar y cargar otro" sin cerrar el sheet (el sábado se cargan 8
 juntos).
 
 ### F5 · P2 — Los atajos del PWA y la instalación están rotos
+
+> **Íconos resueltos el 2026-09-27** (`icon-192`, `icon-512` y `apple-touch-icon`). Sigue
+> pendiente leer `?quick=expense` para el atajo.
 - `public/manifest.json` apunta a `/icon-192.png` y `/icon-512.png`: **ninguno de los dos
   archivos existe** en `public/` (solo están `manifest.json` y `sw.js`). El ícono de "Agregar a
   inicio" queda en blanco o con una captura de la pantalla.

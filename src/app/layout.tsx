@@ -11,6 +11,14 @@ export const metadata: Metadata = {
   title: 'Finanzas Personales',
   description: 'Tu app de finanzas personales',
   manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    // iOS no lee el manifest: "Agregar a inicio" usa este.
+    apple: { url: '/apple-touch-icon.png', sizes: '180x180' },
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
