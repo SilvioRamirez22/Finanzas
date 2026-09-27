@@ -5,9 +5,9 @@ import {
   TrendingUp, Wifi, Coffee, Wrench, Gift, Shield, Tag, Pill, type LucideIcon,
 } from 'lucide-react'
 
-// Las categorías guardan el nombre de un ícono de Tabler (así vienen de la
-// base). Acá se traducen a lucide, que ya está en el bundle, sin cargar la
-// fuente de íconos por CDN. Un nombre desconocido cae en una etiqueta.
+// Las categorías guardan en `icon` un emoji (lo nuevo: "🛒") o el nombre de un
+// ícono de Tabler (lo viejo: "shopping-cart"). Los nombres se traducen a lucide,
+// que ya está en el bundle; un nombre desconocido cae en una etiqueta.
 const MAP: Record<string, LucideIcon> = {
   'shopping-cart': ShoppingCart, car: Car, home: Home, bolt: Zap, heart: Heart,
   school: GraduationCap, 'device-gamepad': Gamepad2, shirt: Shirt, barbell: Dumbbell,
@@ -19,11 +19,23 @@ const MAP: Record<string, LucideIcon> = {
   tool: Wrench, gift: Gift, shield: Shield, tag: Tag, pill: Pill,
 }
 
+// Un nombre de Tabler es minúsculas, números y guiones; cualquier otra cosa se
+// muestra tal cual (un emoji).
+export const isEmojiIcon = (name?: string | null) => !!name && !/^[a-z0-9-]+$/.test(name)
+
 export default function CategoryIcon({ name, size = 16, className }: {
   name?: string | null
   size?: number
   className?: string
 }) {
+  if (isEmojiIcon(name)) {
+    return (
+      <span aria-hidden="true" className={className}
+        style={{ fontSize: Math.round(size * 1.15), lineHeight: 1, fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif' }}>
+        {name}
+      </span>
+    )
+  }
   const Icon = (name && MAP[name]) || Tag
   return <Icon size={size} className={className} aria-hidden="true" />
 }

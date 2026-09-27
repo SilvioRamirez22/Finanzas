@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import CategoryIcon from '@/components/CategoryIcon'
+import CategoryIcon, { isEmojiIcon } from '@/components/CategoryIcon'
 import { useForm } from 'react-hook-form'
 import { getCategories, upsertCategory, deleteCategory, reorderCategories } from '@/lib/api'
 import { useAppStore } from '@/store/useAppStore'
@@ -15,7 +15,20 @@ const typeOpts: { value: CategoryType; label: string }[] = [
 ]
 
 const COLORS = ['#1D9E75','#378ADD','#D85A30','#534AB7','#BA7517','#E24B4A','#D4537E','#888780','#5DCAA5','#85B7EB']
-const ICONS = ['tag','shopping-cart','car','home','heart','school','device-gamepad','bolt','coffee','briefcase','shirt','barbell','tool','wifi','cash','trending-up','gift','flame','shield','building']
+// Emojis sugeridos; también se puede escribir cualquier otro.
+const EMOJIS = ['🛒','🍝','🛵','🥪','🍽️','☕','🚌','🚕','⛽','🚇','💡','⚡','🔥','🌐','📱','🏢','🏠','🔁','📺','🛍️','📦','👕','🩺','🏋️','💊','🍻','🎮','❤️','🐱','🐶','🎓','📚','✨','🎁','✈️','🔧','💼','💻','📈','💵','📌','🏷️']
+// Fondo del ícono: con emoji, el color suave (el emoji ya tiene color); con un
+// ícono de línea, el color lleno y el ícono en blanco.
+const iconBg = (icon: string, color: string) => (isEmojiIcon(icon) ? `${color}2E` : color)
+// El último emoji escrito, entero aunque tenga varios códigos (🏋️, 👨‍👩‍👧).
+function lastGrapheme(text: string) {
+  if (!text) return ''
+  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+    const parts = [...new (Intl as any).Segmenter('es', { granularity: 'grapheme' }).segment(text)]
+    return parts.length ? parts[parts.length - 1].segment : ''
+  }
+  return [...text].slice(-2).join('')
+}
 
 export default function CategoriasPage() {
   const { setCategories: setStoreCategories } = useAppStore()
@@ -89,7 +102,7 @@ export default function CategoriasPage() {
               <div className="flex items-center gap-2 bg-surface rounded-2xl border border-line px-3 py-2.5 hover:border-line group">
                 <GripVertical size={14} className="text-ink-300 cursor-grab" />
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs flex-shrink-0"
-                  style={{ background: cat.color }}>
+                  style={{ background: iconBg(cat.icon, cat.color) }}>
                   <CategoryIcon name={cat.icon} size={14} />
                 </div>
                 <span className="flex-1 text-sm text-ink-900">{cat.name}</span>
@@ -116,7 +129,7 @@ export default function CategoriasPage() {
               {isExpanded && subs.map(sub => (
                 <div key={sub.id} className="flex items-center gap-2 bg-surface-2 rounded-xl border border-line px-3 py-2 ml-6 mt-1 hover:border-line group">
                   <div className="w-5 h-5 rounded flex items-center justify-center text-white text-xs flex-shrink-0"
-                    style={{ background: sub.color }}>
+                    style={{ background: iconBg(sub.icon, sub.color) }}>
                     <CategoryIcon name={sub.icon} size={12} />
                   </div>
                   <span className="flex-1 text-sm text-ink-700">{sub.name}</span>
@@ -178,7 +191,7 @@ function CategoryForm({ category, parentCategories, onClose, onSuccess }: {
       parent_id: category?.parent_id || '',
       type: category?.type || 'expense' as CategoryType,
       color: category?.color || COLORS[0],
-      icon: category?.icon || 'tag',
+      icon: category?.icon || '🏷️',
     }
   })
   const [submitting, setSubmitting] = useState(false)
@@ -254,28 +267,31 @@ function CategoryForm({ category, parentCategories, onClose, onSuccess }: {
             </div>
           </div>
 
-          {/* Íconos */}
+          {/* Emoji */}
           <div>
-            <label className="text-xs text-ink-500 mb-2 block">Ícono</label>
-            <div className="flex flex-wrap gap-2">
-              {ICONS.map(ic => (
-                <button key={ic} type="button"
-                  onClick={() => setValue('icon', ic)}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                    selectedIcon === ic ? 'text-white' : 'text-ink-500 bg-surface-2 hover:bg-muted'
-                  }`}
-                  style={selectedIcon === ic ? { background: selectedColor } : {}}>
-                  <CategoryIcon name={ic} size={16} />
+            <label htmlFor="cat-emoji" className="text-xs text-ink-500 mb-2 block">Emoji</label>
+            <div className="flex flex-wrap gap-1.5">
+              {EMOJIS.map(e => (
+                <button key={e} type="button" onClick={() => setValue('icon', e)}
+                  aria-label={`Usar ${e}`} aria-pressed={selectedIcon === e}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                    selectedIcon === e ? 'ring-2 ring-brand bg-brand-soft' : 'bg-surface-2 hover:bg-muted'
+                  }`}>
+                  <CategoryIcon name={e} size={18} />
                 </button>
               ))}
             </div>
+            <input id="cat-emoji" value={isEmojiIcon(selectedIcon) ? selectedIcon : ''}
+              onChange={e => { const v = lastGrapheme(e.target.value.trim()); if (v) setValue('icon', v) }}
+              placeholder="O escribí otro con el teclado de emojis"
+              className="mt-2 w-full border border-line rounded-xl px-4 py-3 text-base sm:text-sm outline-none focus:border-brand" />
           </div>
 
-          {/* Preview */}
+          {/* Vista previa */}
           <div className="flex items-center gap-2 p-3 bg-surface-2 rounded-xl">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: selectedColor }}>
-              <CategoryIcon name={selectedIcon} size={16} className="text-white" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white"
+              style={{ background: iconBg(selectedIcon, selectedColor) }}>
+              <CategoryIcon name={selectedIcon} size={18} />
             </div>
             <span className="text-sm text-ink-700">{watch('name') || 'Vista previa'}</span>
           </div>

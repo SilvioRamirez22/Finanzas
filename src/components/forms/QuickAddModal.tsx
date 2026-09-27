@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Check, ChevronDown, ChevronLeft, LayoutGrid, Search } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft, Search, Tag, AlignLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAppStore } from '@/store/useAppStore'
 import {
@@ -11,8 +11,9 @@ import {
 import { getQuickAddHints, suggestDescriptions, EMPTY_HINTS, type QuickAddHints, type DescriptionHint } from '@/lib/quickAddHints'
 import { todayISO, formatCurrency } from '@/lib/format'
 import Sheet from '@/components/ui/Sheet'
-import Keypad from './Keypad'
-import CategoryIcon from '@/components/CategoryIcon'
+import Keypad, { BackspaceButton } from './Keypad'
+import CategoryIcon, { isEmojiIcon } from '@/components/CategoryIcon'
+import CategoryTile from '@/components/CategoryTile'
 import type { TransactionFormData, TransactionFull, TransactionType, Category } from '@/types'
 
 // Carga y edición de movimientos (docs/ux/03-FLUJO-MOVIMIENTO.md).
@@ -22,6 +23,8 @@ import type { TransactionFormData, TransactionFull, TransactionType, Category } 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
 const MESES_CORTO = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 const TYPE_LABEL: Record<TransactionType, string> = { expense: 'Gasto', income: 'Ingreso', transfer: 'Transferencia' }
+const TYPE_SHORT: Record<TransactionType, string> = { expense: 'Gasto', income: 'Ingreso', transfer: 'Transf.' }
+const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
 const SAVE_LABEL: Record<TransactionType, string> = { expense: 'Guardar gasto', income: 'Guardar ingreso', transfer: 'Guardar transferencia' }
 const SAVED_LABEL: Record<TransactionType, string> = { expense: 'Gasto guardado', income: 'Ingreso guardado', transfer: 'Transferencia guardada' }
 const INSTALLMENT_CHIPS = [3, 6, 12]
@@ -30,6 +33,9 @@ const pad2 = (n: number) => String(n).padStart(2, '0')
 // "2026-09" de "2026-09-22"
 const monthKey = (iso: string) => iso.slice(0, 7)
 const longestWord = (s: string) => Math.max(...s.split(/\s+/).map(w => w.length))
+
+// Lo que muestra la hoja: la carga, o una pantalla para elegir algo.
+type View = 'main' | 'category' | 'date' | 'account' | 'to' | 'more'
 
 function addDaysISO(iso: string, days: number) {
   const [y, m, d] = iso.split('-').map(Number)
@@ -147,10 +153,10 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
   const [form, setForm] = useState<Form>(() => blankForm(todayISO()))
   const [initial, setInitial] = useState<Form>(form)
   const [hints, setHints] = useState<QuickAddHints>(EMPTY_HINTS)
-  const [moreOpen, setMoreOpen] = useState(false)
-  const [allCats, setAllCats] = useState(false)
+  const [view, setView] = useState<View>('main')
+  // En "category": la madre cuyas subcategorías se están mostrando.
+  const [catRoot, setCatRoot] = useState('')
   const [catQuery, setCatQuery] = useState('')
-  const [pickDate, setPickDate] = useState(false)
   const [customInstallments, setCustomInstallments] = useState(false)
   const [textFocus, setTextFocus] = useState(false)
   const [descFocus, setDescFocus] = useState(false)
@@ -174,10 +180,9 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
     if (!transaction) start.account_id = [...activeAccounts].sort((a, b) => a.sort_order - b.sort_order)[0]?.id || ''
     setForm(start)
     setInitial(start)
-    setMoreOpen(!!transaction)
-    setAllCats(false)
+    setView('main')
+    setCatRoot('')
     setCatQuery('')
-    setPickDate(false)
     setCustomInstallments(!!transaction && ![1, ...INSTALLMENT_CHIPS].includes(start.installments))
     setConfirmDiscard(false)
     setApplyToAll(true)
@@ -231,7 +236,8 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
       installments: type === 'expense' ? f.installments : 1,
       is_recurring: type === 'transfer' ? false : f.is_recurring,
     }))
-    setAllCats(false)
+    setCatRoot('')
+    setCatQuery('')
   }
 
   function setAccount(id: string) {
@@ -266,50 +272,38 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
       .sort((a, b) => (hints.categoryUses[b.id] || 0) - (hints.categoryUses[a.id] || 0) || a.sort_order - b.sort_order)
   }, [categories, form.type, hints])
 
-  // Grilla de 4 por fila: las 7 más usadas + "Todas" (dos filas). Si entran
-  // todas en 8 lugares, no hace falta el botón.
-  const TOP = 7
-  const needsAll = rootCats.length > TOP + 1
-  let gridCats: Category[] = needsAll ? rootCats.slice(0, TOP) : rootCats
-  // La elegida siempre a la vista, aunque no esté entre las más usadas.
-  const selectedRoot = rootCats.find(c => c.id === form.category_id)
-  if (needsAll && selectedRoot && !gridCats.includes(selectedRoot)) gridCats = [...gridCats.slice(0, TOP - 1), selectedRoot]
+  // Subcategorías activas de una madre, las más usadas primero.
+  const subsOf = (rootId: string) => (categoriesWithSubs().find(c => c.id === rootId)?.subcategories || [])
+    .filter(c => c.is_active)
+    .sort((a, b) => (hints.categoryUses[b.id] || 0) - (hints.categoryUses[a.id] || 0) || a.sort_order - b.sort_order)
 
-  // "Todas": madres en orden alfabético con sus subcategorías; el buscador
-  // encuentra por madre o por subcategoría.
-  const allGroups = useMemo(() => {
-    const withSubs = categoriesWithSubs()
+  // Buscador: madres y subcategorías cuyo nombre coincide.
+  const catMatches = useMemo(() => {
     const q = catQuery.trim().toLowerCase()
-    return [...rootCats]
-      .sort((a, b) => a.name.localeCompare(b.name, 'es'))
-      .map(root => {
-        const subs = (withSubs.find(c => c.id === root.id)?.subcategories || [])
-          .filter(s => s.is_active)
-          .sort((a, b) => a.name.localeCompare(b.name, 'es'))
-        if (!q || root.name.toLowerCase().includes(q)) return { root, subs }
-        const hits = subs.filter(s => s.name.toLowerCase().includes(q))
-        return hits.length ? { root, subs: hits } : null
-      })
-      .filter((g): g is { root: Category; subs: Category[] } => g !== null)
-  }, [rootCats, categories, catQuery])
+    if (!q) return []
+    const out: { root: Category; sub: Category | null }[] = []
+    for (const root of rootCats) {
+      if (root.name.toLowerCase().includes(q)) out.push({ root, sub: null })
+      for (const sub of subsOf(root.id)) if (sub.name.toLowerCase().includes(q)) out.push({ root, sub })
+    }
+    return out
+  }, [rootCats, categories, catQuery, hints])
 
-  const subcats = useMemo(() => {
-    const root = categoriesWithSubs().find(c => c.id === form.category_id)
-    return (root?.subcategories || []).sort((a, b) => (hints.categoryUses[b.id] || 0) - (hints.categoryUses[a.id] || 0) || a.sort_order - b.sort_order)
-  }, [form.category_id, categories, hints])
-
-  function pickCategory(id: string) {
-    setForm(f => f.category_id === id
-      ? { ...f, category_id: '', subcategory_id: '' }
-      : { ...f, category_id: id, subcategory_id: '' })
-  }
-
-  // Elegir desde "Todas": deja madre (y subcategoría, si se tocó una) y vuelve
-  // a la grilla.
-  function pickFromAll(rootId: string, subId = '') {
-    setForm(f => ({ ...f, category_id: rootId, subcategory_id: subId }))
-    setAllCats(false)
+  function openCategories() {
+    setCatRoot('')
     setCatQuery('')
+    setView('category')
+  }
+  function chooseCategory(rootId: string, subId = '') {
+    setForm(f => ({ ...f, category_id: rootId, subcategory_id: subId }))
+    setCatRoot('')
+    setCatQuery('')
+    setView('main')
+  }
+  // Una madre sin subcategorías se elige directo; con subcategorías, las muestra.
+  function tapRoot(root: Category) {
+    if (subsOf(root.id).length) setCatRoot(root.id)
+    else chooseCategory(root.id)
   }
 
   // ---- Cuentas: las más usadas primero ----
@@ -328,7 +322,6 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
     { iso: yesterday, label: 'Ayer' },
     ...(viewDate !== today && viewDate !== yesterday ? [{ iso: viewDate, label: shortDay(viewDate) }] : []),
   ]
-  const customDate = !dateChips.some(c => c.iso === form.date)
   const dateChanged = !transaction || transaction.date !== form.date
   const outsideView = /^\d{4}-\d{2}/.test(form.date) && monthKey(form.date) !== viewKey && dateChanged
   const dateYear = Number(form.date.slice(0, 4))
@@ -500,22 +493,106 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
     form.notes.trim() && 'con nota',
   ].filter(Boolean).join(' · ')
 
+  // Lo elegido, para los botones de abajo.
+  const rootCat = categories.find(c => c.id === form.category_id)
+  const subCat = categories.find(c => c.id === form.subcategory_id)
+  const pillIcon = subCat && isEmojiIcon(subCat.icon) ? subCat.icon : rootCat?.icon
+  const dateMain = form.date === today ? 'Hoy' : form.date === yesterday ? 'Ayer'
+    : /^\d{4}-\d{2}-\d{2}$/.test(form.date) ? DIAS[new Date(`${form.date}T12:00:00`).getDay()] : 'Fecha'
+  const saveLabel = isEdit ? 'Guardar cambios' : SAVE_LABEL[form.type]
+
   const typeSwitch = (
-    <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-surface-2 border border-line" role="radiogroup" aria-label="Tipo de movimiento">
+    <div className="flex gap-0.5 p-[3px] rounded-xl bg-surface-2" role="radiogroup" aria-label="Tipo de movimiento">
       {(['expense', 'income', 'transfer'] as const).map(t => (
         <button
           key={t}
           type="button"
           role="radio"
           aria-checked={form.type === t}
+          aria-label={TYPE_LABEL[t]}
           onClick={() => setType(t)}
-          className={`h-10 rounded-lg text-sm font-medium transition-colors ${
-            form.type === t ? 'bg-surface text-ink-900 shadow-[0_1px_2px_rgb(26_22_16/0.08)]' : 'text-ink-500'
+          className={`h-9 px-3 sm:px-4 rounded-[9px] text-sm transition-colors ${
+            form.type === t ? 'bg-surface text-ink-900 font-semibold shadow-[0_1px_2px_rgb(26_22_16/0.1)]' : 'text-ink-500'
           }`}
         >
-          {TYPE_LABEL[t]}
+          {TYPE_SHORT[t]}
         </button>
       ))}
+    </div>
+  )
+
+  const backRow = (onBack: () => void, title: React.ReactNode) => (
+    <div className="flex items-center gap-1 -ml-2 mb-3">
+      <button type="button" onClick={onBack} aria-label="Volver"
+        className="w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-full text-ink-700 hover:bg-surface-2 active:bg-surface-2">
+        <ChevronLeft size={22} />
+      </button>
+      <div className="min-w-0 flex items-center gap-2 text-base font-semibold text-ink-900">{title}</div>
+    </div>
+  )
+
+  // Una casilla de categoría (madre o subcategoría) en la grilla.
+  const catTile = (c: Category, color: string | undefined, on: boolean, onClick: () => void, caption?: string) => (
+    <button key={c.id + (caption || '')} type="button" onClick={onClick} aria-pressed={on}
+      className="min-w-0 flex flex-col items-center gap-1.5 py-1 rounded-2xl select-none active:bg-surface-2">
+      <CategoryTile icon={c.icon} color={color || c.color} size={56}
+        className={on ? 'ring-2 ring-offset-2 ring-offset-surface ring-brand' : ''} />
+      <span className={`max-w-full line-clamp-2 [hyphens:auto] text-center leading-[14px] ${
+        longestWord(c.name) > 11 ? 'text-[11px]' : 'text-xs'
+      } ${on ? 'text-brand-ink font-medium' : 'text-ink-900'}`}>{c.name}</span>
+      {caption && <span className="max-w-full truncate text-[10px] leading-3 text-ink-500">{caption}</span>}
+    </button>
+  )
+
+  const mainFooter = (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <button type="button" onClick={() => setView('date')} aria-label={`Fecha: ${dateMain} ${shortDay(form.date)}. Cambiar`}
+          className="flex-1 min-w-0 h-12 px-3 rounded-2xl border border-line bg-surface flex items-center gap-2 text-[15px] hover:bg-surface-2 active:bg-surface-2">
+          <CalendarDays size={18} className="text-ink-500 flex-shrink-0" aria-hidden="true" />
+          <span className="font-semibold text-ink-900 capitalize">{dateMain}</span>
+          <span className="text-ink-500 truncate">{shortDay(form.date)}</span>
+        </button>
+        {form.type !== 'transfer' ? (
+          <button type="button" onClick={openCategories}
+            aria-label={rootCat ? `Categoría: ${rootCat.name}${subCat ? `, ${subCat.name}` : ''}. Cambiar` : 'Elegir categoría'}
+            className={`max-w-[60%] h-12 pl-2 pr-3.5 rounded-2xl flex items-center gap-2 text-[15px] font-semibold text-ink-900 ${
+              rootCat ? '' : 'border border-dashed border-line-strong bg-surface-2 text-ink-700'
+            }`}
+            style={rootCat ? { background: `${rootCat.color || '#888780'}2E` } : undefined}>
+            {rootCat
+              ? <span className="w-8 h-8 flex-shrink-0 flex items-center justify-center" style={{ color: rootCat.color }}>
+                  <CategoryIcon name={pillIcon} size={20} />
+                </span>
+              : <Tag size={18} className="ml-1.5 text-ink-500 flex-shrink-0" aria-hidden="true" />}
+            <span className="truncate">{subCat?.name || rootCat?.name || 'Categoría'}</span>
+          </button>
+        ) : (
+          <button type="button" onClick={() => setView('to')}
+            className={`max-w-[60%] h-12 px-3.5 rounded-2xl flex items-center gap-2 text-[15px] font-semibold ${
+              toName ? 'bg-info-soft text-ink-900' : 'border border-dashed border-line-strong bg-surface-2 text-ink-700'
+            }`}>
+            <ArrowRight size={18} className="flex-shrink-0 text-info" aria-hidden="true" />
+            <span className="truncate">{toName || 'Hacia…'}</span>
+          </button>
+        )}
+      </div>
+      {isMobile ? (
+        <Keypad onDigit={pressDigit} submit={{ label: saveLabel, disabled: !!blocker || submitting, form: 'quick-add-form' }} />
+      ) : (
+        <div className="flex gap-2">
+          {!isEdit && (
+            <button type="button" onClick={() => save(true)} disabled={!!blocker || submitting}
+              className="h-12 px-3 rounded-xl border border-line text-sm font-medium text-ink-700 disabled:opacity-50 whitespace-nowrap">
+              Guardar y otro
+            </button>
+          )}
+          <button type="submit" form="quick-add-form" disabled={!!blocker || submitting}
+            className="flex-1 h-12 rounded-xl bg-brand text-white text-sm font-semibold disabled:bg-surface-2 disabled:text-ink-500 disabled:border disabled:border-line">
+            {submitting ? 'Guardando…' : blocker || saveLabel}
+          </button>
+        </div>
+      )}
     </div>
   )
 
@@ -533,47 +610,354 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
         </button>
       </div>
     </div>
-  ) : (
-    <div className="space-y-2">
-      {isMobile && !textFocus && activeAccounts.length > 0 && (
-        <Keypad
-          onDigit={pressDigit}
-          onBackspace={() => set('amount', form.amount.slice(0, -1).replace(/\.$/, ''))}
-          onClear={() => set('amount', '')}
-        />
-      )}
-      <div className="flex gap-2">
-        {!isEdit && (
-          <button
-            type="button"
-            onClick={() => save(true)}
-            disabled={!!blocker || submitting}
-            className="h-12 px-3 rounded-xl border border-line text-sm font-medium text-ink-700 disabled:opacity-50 whitespace-nowrap"
-          >
-            Guardar y otro
-          </button>
+  ) : view === 'main' ? mainFooter
+    : view === 'more' || view === 'date' ? (
+      <button type="button" onClick={() => setView('main')}
+        className="w-full h-12 rounded-xl bg-brand text-white text-sm font-semibold">
+        Listo
+      </button>
+    ) : undefined
+
+  // ---------------- Pantallas ----------------
+
+  const mainView = (
+    <div className="min-h-[30dvh] sm:min-h-[200px] flex flex-col items-center justify-center gap-2.5 py-4 text-center">
+      <div className="flex items-center justify-center gap-2 max-w-full">
+        {isMobile ? (
+          <output aria-live="polite" aria-label="Monto" className="num text-[52px] leading-none font-semibold tracking-tight text-ink-900 truncate">
+            <span className="text-[26px] align-top text-ink-500 font-normal mr-1">$</span>
+            {form.amount ? formatAmount(form.amount) : <span className="text-ink-500">0</span>}
+          </output>
+        ) : (
+          <label className="flex items-baseline justify-center gap-1">
+            <span className="sr-only">Monto</span>
+            <span className="text-[28px] text-ink-500">$</span>
+            <input
+              ref={amountInputRef}
+              value={formatAmount(form.amount)}
+              onChange={e => set('amount', parseTypedAmount(e.target.value))}
+              inputMode="decimal"
+              placeholder="0"
+              // El ancho sigue al número, así el "$" queda pegado.
+              style={{ width: `${Math.max(1, formatAmount(form.amount).length) + 0.5}ch` }}
+              className="num max-w-[320px] text-[48px] leading-tight font-semibold text-ink-900 bg-transparent outline-none placeholder:text-ink-500"
+            />
+          </label>
         )}
-        <button
-          type="submit"
-          form="quick-add-form"
-          disabled={!!blocker || submitting}
-          className="flex-1 h-12 rounded-xl bg-brand text-white text-sm font-semibold disabled:bg-surface-2 disabled:text-ink-500 disabled:border disabled:border-line"
-        >
-          {submitting ? 'Guardando…'
-            : blocker ? blocker
-            : isEdit ? 'Guardar cambios'
-            : `${SAVE_LABEL[form.type]} · $ ${formatAmount(form.amount)}`}
+        {isMobile && form.amount && (
+          <BackspaceButton
+            onBackspace={() => set('amount', form.amount.slice(0, -1).replace(/\.$/, ''))}
+            onClear={() => set('amount', '')}
+            className="w-10 h-10 flex-shrink-0 rounded-full bg-surface-2 text-ink-500 flex items-center justify-center active:bg-muted"
+          />
+        )}
+      </div>
+
+      {savedTick ? (
+        <p className="text-sm text-pos font-medium inline-flex items-center gap-1"><Check size={15} /> Guardado. Cargá el siguiente</p>
+      ) : form.installments > 1 && amountNum > 0 ? (
+        <p className="text-xs text-ink-500 num">
+          {form.installments} cuotas × $ {formatAmount(form.amount)} = {formatCurrency(amountNum * form.installments)}
+        </p>
+      ) : null}
+
+      <button type="button" onClick={() => setView('more')}
+        className="max-w-full h-9 px-3.5 rounded-full border border-line bg-surface text-sm text-ink-700 inline-flex items-center gap-1.5 hover:bg-surface-2 active:bg-surface-2">
+        <AlignLeft size={16} className="flex-shrink-0 text-ink-500" aria-hidden="true" />
+        <span className="truncate">{extrasSummary || 'Agregar nota'}</span>
+      </button>
+
+      {(activeAccounts.length > 1 || form.type === 'transfer') && (
+        <button type="button" onClick={() => setView('account')}
+          className="h-9 px-2 text-[13px] text-ink-500 inline-flex items-center gap-1">
+          desde <b className="font-semibold text-ink-900">{accountName || 'elegí una cuenta'}</b>
+          <ChevronDown size={14} aria-hidden="true" />
         </button>
+      )}
+
+      {outsideView && (
+        <p className="rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn" role="status">
+          {isEdit ? 'Se va a mover a ' : 'Se va a guardar en '}
+          <b>{monthName(dateYear, dateMonth, selectedMonth.year)}</b>
+          {' · '}estás viendo {monthName(selectedMonth.year, selectedMonth.month, dateYear)}
+        </p>
+      )}
+
+      {amountNum > 0 && blocker && (
+        <p className="text-xs text-warn">{blocker}</p>
+      )}
+
+      {isMobile && !isEdit && (
+        <button type="button" onClick={() => save(true)} disabled={!!blocker || submitting}
+          className="h-9 px-3 text-[13px] font-medium text-brand-ink disabled:text-ink-500 disabled:opacity-60">
+          Guardar y cargar otro
+        </button>
+      )}
+    </div>
+  )
+
+  const rootForSubs = rootCats.find(c => c.id === catRoot)
+  const categoryView = rootForSubs ? (
+    <div className="pb-4">
+      {backRow(() => setCatRoot(''), (
+        <>
+          <CategoryTile icon={rootForSubs.icon} color={rootForSubs.color} size={32} />
+          <span className="truncate">{rootForSubs.name}</span>
+        </>
+      ))}
+      <div className="grid grid-cols-4 gap-x-2 gap-y-3">
+        {subsOf(rootForSubs.id).map(s =>
+          catTile(s, rootForSubs.color, form.subcategory_id === s.id, () => chooseCategory(rootForSubs.id, s.id)))}
+      </div>
+      <button type="button" onClick={() => chooseCategory(rootForSubs.id)}
+        className="mt-4 w-full h-12 rounded-2xl border border-dashed border-line-strong bg-surface-2 text-sm font-medium text-ink-700">
+        Solo «{rootForSubs.name}», sin subcategoría
+      </button>
+    </div>
+  ) : (
+    <div className="pb-4">
+      {backRow(() => setView('main'), 'Categoría')}
+      <label className="flex items-center gap-2 h-11 px-3 mb-4 rounded-xl bg-surface-2 text-ink-500 border border-transparent focus-within:border-brand">
+        <Search size={17} aria-hidden="true" />
+        <input type="search" value={catQuery} onChange={e => setCatQuery(e.target.value)}
+          placeholder="Buscar (ej: luz, ropa…)" aria-label="Buscar categoría" {...textProps}
+          className="flex-1 min-w-0 bg-transparent outline-none text-base sm:text-sm text-ink-900 placeholder:text-ink-500" />
+      </label>
+      {catQuery.trim() ? (
+        catMatches.length > 0 ? (
+          <div className="grid grid-cols-4 gap-x-2 gap-y-3">
+            {catMatches.map(({ root, sub }) => sub
+              ? catTile(sub, root.color, form.subcategory_id === sub.id, () => chooseCategory(root.id, sub.id), root.name)
+              : catTile(root, root.color, form.category_id === root.id && !form.subcategory_id, () => tapRoot(root)))}
+          </div>
+        ) : (
+          <p className="py-4 text-sm text-ink-500">Ninguna categoría se llama así.</p>
+        )
+      ) : (
+        <div className="grid grid-cols-4 gap-x-2 gap-y-3">
+          {rootCats.map(root => catTile(root, root.color, form.category_id === root.id, () => tapRoot(root)))}
+        </div>
+      )}
+      {form.category_id && !catQuery.trim() && (
+        <button type="button" onClick={() => chooseCategory('')}
+          className="mt-4 h-10 px-1 text-sm text-ink-500 underline underline-offset-2">
+          Quitar la categoría
+        </button>
+      )}
+    </div>
+  )
+
+  const dateView = (
+    <div className="pb-4 space-y-3">
+      {backRow(() => setView('main'), 'Fecha')}
+      <div className="flex flex-wrap gap-2">
+        {dateChips.map(c => (
+          <button key={c.iso} type="button" onClick={() => { set('date', c.iso); setView('main') }}
+            aria-pressed={form.date === c.iso} className={chip(form.date === c.iso)}>
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <label className="block">
+        <span className={label}>Otra fecha</span>
+        <input type="date" value={form.date} onChange={e => e.target.value && set('date', e.target.value)}
+          className={textInput} {...textProps} />
+      </label>
+      {outsideView && (
+        <p className="rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn" role="status">
+          {isEdit ? 'Se va a mover a ' : 'Se va a guardar en '}
+          <b>{monthName(dateYear, dateMonth, selectedMonth.year)}</b>
+          {' · '}estás viendo {monthName(selectedMonth.year, selectedMonth.month, dateYear)}
+        </p>
+      )}
+    </div>
+  )
+
+  const accountList = (ids: typeof rankedAccounts, selected: string, onPick: (id: string) => void) => (
+    <div className="divide-y divide-line rounded-2xl border border-line overflow-hidden">
+      {ids.map(a => (
+        <button key={a.id} type="button" onClick={() => onPick(a.id)} aria-pressed={selected === a.id}
+          className="w-full min-h-[52px] px-4 flex items-center justify-between gap-3 text-left bg-surface hover:bg-surface-2 active:bg-surface-2">
+          <span className={`text-[15px] ${selected === a.id ? 'font-semibold text-brand-ink' : 'text-ink-900'}`}>{a.name}</span>
+          {selected === a.id && <Check size={18} className="text-brand-ink flex-shrink-0" aria-hidden="true" />}
+        </button>
+      ))}
+    </div>
+  )
+
+  const accountView = (
+    <div className="pb-4">
+      {backRow(() => setView('main'), form.type === 'transfer' ? 'Desde' : 'Cuenta')}
+      {accountList(rankedAccounts, form.account_id, id => { setAccount(id); setView('main') })}
+    </div>
+  )
+
+  const toView = (
+    <div className="pb-4">
+      {backRow(() => setView('main'), 'Hacia qué cuenta')}
+      {accountList(rankedAccounts.filter(a => a.id !== form.account_id), form.transfer_to_account_id,
+        id => { set('transfer_to_account_id', id); setView('main') })}
+    </div>
+  )
+
+  const moreView = (
+    <div className="pb-4 space-y-4">
+      {backRow(() => setView('main'), 'Nota y detalles')}
+      <div className="relative">
+        <label htmlFor="qa-desc" className={label}>Descripción (opcional)</label>
+        <input
+          id="qa-desc"
+          value={form.description}
+          onChange={e => set('description', e.target.value)}
+          onFocus={() => { setTextFocus(true); setDescFocus(true) }}
+          onBlur={() => { setTextFocus(false); setTimeout(() => setDescFocus(false), 150) }}
+          placeholder={catName ? `Si la dejás vacía: ${subName || catName}` : 'Ej: Carrefour, alquiler…'}
+          autoComplete="off"
+          className={textInput}
+        />
+        {suggestions.length > 0 && (
+          <ul className="mt-1 rounded-xl border border-line bg-surface overflow-hidden" role="listbox" aria-label="Descripciones usadas antes">
+            {suggestions.map(s => (
+              <li key={s.text}>
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => applySuggestion(s)}
+                  className="w-full min-h-[44px] flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-surface-2 active:bg-surface-2 border-b border-line last:border-0">
+                  <span className="min-w-0">
+                    <span className="block text-sm text-ink-900 truncate">{s.text}</span>
+                    <span className="block text-xs text-ink-500 truncate">
+                      {categories.find(c => c.id === s.category_id)?.name || 'Sin categoría'}
+                      {' · '}{activeAccounts.find(a => a.id === s.account_id)?.name}
+                    </span>
+                  </span>
+                  <span className="num text-sm text-ink-700 flex-shrink-0">{formatCurrency(s.amount)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {activePayments.length > 0 && form.type !== 'transfer' && (
+        <fieldset>
+          <legend className={label}>Medio de pago</legend>
+          <div className="flex flex-wrap gap-2">
+            {activePayments.map(p => (
+              <button key={p.id} type="button"
+                onClick={() => { paymentTouched.current = true; set('payment_method_id', form.payment_method_id === p.id ? '' : p.id) }}
+                aria-pressed={form.payment_method_id === p.id} className={chip(form.payment_method_id === p.id)}>
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      {/* Cuotas al crear */}
+      {form.type === 'expense' && !isEdit && (
+        <fieldset>
+          <legend className={label}>Cuotas (el monto es el de cada cuota)</legend>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { set('installments', 1); setCustomInstallments(false) }}
+              aria-pressed={form.installments === 1 && !customInstallments} className={chip(form.installments === 1 && !customInstallments)}>
+              Sin cuotas
+            </button>
+            {INSTALLMENT_CHIPS.map(n => (
+              <button key={n} type="button" onClick={() => { set('installments', n); setCustomInstallments(false) }}
+                aria-pressed={form.installments === n && !customInstallments} className={chip(form.installments === n && !customInstallments)}>
+                {n}
+              </button>
+            ))}
+            <button type="button" onClick={() => setCustomInstallments(true)}
+              aria-pressed={customInstallments} className={chip(customInstallments)}>
+              Otra
+            </button>
+          </div>
+          {customInstallments && (
+            <input type="number" inputMode="numeric" min={2} max={120}
+              value={form.installments > 1 ? form.installments : ''}
+              onChange={e => set('installments', Math.min(120, Math.max(1, parseInt(e.target.value) || 1)))}
+              placeholder="Cantidad de cuotas" aria-label="Cantidad de cuotas"
+              className={`${textInput} mt-2`} {...textProps} />
+          )}
+          {form.installments > 24 && (
+            <p className="text-xs text-warn mt-1.5">Se van a crear {form.installments} movimientos, uno por mes.</p>
+          )}
+        </fieldset>
+      )}
+
+      {/* Cuotas al editar: cambiar la cantidad y a qué cuotas aplicar. */}
+      {isEdit && form.type === 'expense' && (
+        <div className="rounded-xl bg-surface-2 p-3 space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="qa-edit-installments" className="text-sm text-ink-700">
+              Cantidad de cuotas
+              {origTotal > 1 && (
+                <span className="block text-xs text-ink-500">Estás editando la cuota {editingNumber} de {origTotal}</span>
+              )}
+            </label>
+            <input id="qa-edit-installments" type="number" inputMode="numeric" min={editingNumber} max={120}
+              value={form.installments}
+              onChange={e => set('installments', Math.min(120, Math.max(1, parseInt(e.target.value) || 1)))}
+              className="w-20 h-11 rounded-lg border border-line bg-surface px-3 text-right text-base sm:text-sm outline-none focus:border-brand"
+              {...textProps} />
+          </div>
+          {origTotal > 1 && (
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" checked={applyToAll} onChange={e => setApplyToAll(e.target.checked)} className="mt-1 w-4 h-4 accent-[var(--brand)]" />
+              <span className="text-sm text-ink-700">
+                Aplicar los cambios a todas las cuotas
+                <span className="block text-xs text-ink-500">
+                  {applyToAll ? 'Monto, descripción, cuenta, categoría y fechas se copian a todas.' : 'Solo cambia esta cuota.'}
+                </span>
+              </span>
+            </label>
+          )}
+          {form.installments !== origTotal && form.installments >= editingNumber && (
+            <p className="text-xs text-pos font-medium">
+              {form.installments > origTotal
+                ? `Se ${form.installments - origTotal === 1 ? 'agrega 1 cuota' : `agregan ${form.installments - origTotal} cuotas`}, una por mes.`
+                : `Se ${origTotal - form.installments === 1 ? 'borra la última cuota' : `borran las últimas ${origTotal - form.installments} cuotas`}.`}
+            </p>
+          )}
+        </div>
+      )}
+
+      {form.type !== 'transfer' && form.installments <= 1 && (
+        <label className="flex items-center justify-between gap-3 cursor-pointer min-h-[44px]">
+          <span className="text-sm text-ink-900">
+            {form.type === 'expense' ? 'Gasto fijo' : 'Ingreso fijo'}
+            <span className="block text-xs text-ink-500">Se repite todos los meses (expensas, luz, sueldo…)</span>
+          </span>
+          <input type="checkbox" role="switch" checked={form.is_recurring}
+            onChange={e => set('is_recurring', e.target.checked)}
+            className="w-5 h-5 flex-shrink-0 accent-[var(--brand)]" />
+        </label>
+      )}
+
+      <div>
+        <label htmlFor="qa-notes" className={label}>Notas</label>
+        <textarea id="qa-notes" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)}
+          className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-base sm:text-sm text-ink-900 outline-none focus:border-brand resize-none"
+          {...textProps} />
       </div>
     </div>
   )
+
+  const body = view === 'category' ? categoryView
+    : view === 'date' ? dateView
+    : view === 'account' ? accountView
+    : view === 'to' ? toView
+    : view === 'more' ? moreView
+    : mainView
 
   return (
     <Sheet
       open={open}
       title={isEdit ? 'Editar movimiento' : 'Nuevo movimiento'}
       onRequestClose={requestClose}
-      header={typeSwitch}
+      compact
+      header={view === 'main'
+        ? typeSwitch
+        : <span className="text-sm font-medium text-ink-500">{isEdit ? 'Editar movimiento' : 'Nuevo movimiento'}</span>}
       footer={activeAccounts.length > 0 ? footer : undefined}
       initialFocus={isMobile ? undefined : amountInputRef}
     >
@@ -587,360 +971,10 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
           </Link>
         </div>
       ) : (
-        <form id="quick-add-form" onSubmit={e => { e.preventDefault(); save(false) }} className="pb-4 space-y-4">
-
-          {/* Monto */}
-          <div className="text-center pt-1">
-            {isMobile ? (
-              <output aria-live="polite" aria-label="Monto" className="block num text-[34px] leading-tight font-semibold text-ink-900">
-                <span className="text-ink-500 font-normal mr-1">$</span>
-                {form.amount ? formatAmount(form.amount) : <span className="text-ink-500">0</span>}
-              </output>
-            ) : (
-              <label className="flex items-baseline justify-center gap-1">
-                <span className="sr-only">Monto</span>
-                <span className="text-[28px] text-ink-500">$</span>
-                <input
-                  ref={amountInputRef}
-                  value={formatAmount(form.amount)}
-                  onChange={e => set('amount', parseTypedAmount(e.target.value))}
-                  inputMode="decimal"
-                  placeholder="0"
-                  // El ancho sigue al número, así el "$" queda pegado.
-                  style={{ width: `${Math.max(1, formatAmount(form.amount).length) + 0.5}ch` }}
-                  className="num max-w-[300px] text-[34px] leading-tight font-semibold text-ink-900 bg-transparent outline-none placeholder:text-ink-500"
-                />
-              </label>
-            )}
-            <p className={`text-xs mt-0.5 min-h-[18px] ${savedTick ? 'text-pos font-medium' : form.type !== 'transfer' && !catName ? 'text-warn' : 'text-ink-500'}`}>
-              {savedTick
-                ? <span className="inline-flex items-center gap-1"><Check size={14} /> Guardado. Cargá el siguiente</span>
-                : form.type === 'transfer'
-                  ? `${accountName || '…'} → ${toName || 'elegí destino'}`
-                  : [subName ? `${catName} · ${subName}` : catName || 'Sin categoría', accountName].filter(Boolean).join(' · ')}
-            </p>
-            {form.installments > 1 && amountNum > 0 && (
-              <p className="text-xs text-ink-500 num">
-                {form.installments} cuotas × $ {formatAmount(form.amount)} = {formatCurrency(amountNum * form.installments)}
-              </p>
-            )}
-          </div>
-
-          {/* Categoría: grilla de 4 por fila con las más usadas, o la lista entera */}
-          {form.type !== 'transfer' && (
-            <fieldset>
-              {!allCats ? (
-                <>
-                  <legend className={label}>Categoría</legend>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {gridCats.map(c => {
-                      const on = form.category_id === c.id
-                      return (
-                        <button key={c.id} type="button" onClick={() => pickCategory(c.id)} aria-pressed={on}
-                          className={`h-[72px] min-w-0 px-0.5 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-colors select-none ${
-                            on ? 'border-brand ring-1 ring-brand bg-brand-soft' : 'border-line bg-surface hover:bg-surface-2 active:bg-surface-2'
-                          }`}>
-                          <span className="w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center"
-                            style={{ background: `${c.color || '#888780'}1F`, color: c.color || '#888780' }}>
-                            <CategoryIcon name={c.icon} size={17} />
-                          </span>
-                          {/* Hasta dos renglones; una palabra muy larga ("Extraordinario")
-                              va un punto más chica para entrar entera. */}
-                          <span className={`max-w-full line-clamp-2 [hyphens:auto] text-center leading-[14px] ${
-                            longestWord(c.name) > 11 ? 'text-[11px]' : 'text-xs'
-                          } ${on ? 'text-brand-ink' : 'text-ink-900'}`}>{c.name}</span>
-                        </button>
-                      )
-                    })}
-                    {needsAll && (
-                      <button type="button" onClick={() => setAllCats(true)}
-                        className="h-[72px] min-w-0 px-0.5 rounded-2xl flex flex-col items-center justify-center gap-1 border border-dashed border-line-strong bg-surface-2 hover:bg-muted active:bg-muted">
-                        <span className="w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center bg-muted text-ink-700">
-                          <LayoutGrid size={17} aria-hidden="true" />
-                        </span>
-                        <span className="max-w-full truncate text-xs leading-[14px] text-ink-900">Todas ({rootCats.length})</span>
-                      </button>
-                    )}
-                  </div>
-                  {subcats.length > 0 && (
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar mt-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap" aria-label="Subcategoría (opcional)">
-                      {subcats.map(s => (
-                        <button key={s.id} type="button"
-                          onClick={() => set('subcategory_id', form.subcategory_id === s.id ? '' : s.id)}
-                          aria-pressed={form.subcategory_id === s.id} className={chip(form.subcategory_id === s.id)}>
-                          {s.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <legend className="sr-only">Categoría</legend>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-medium text-ink-500">Todas las categorías</span>
-                    <button type="button" onClick={() => { setAllCats(false); setCatQuery('') }}
-                      className="inline-flex items-center gap-1 h-9 px-2 -mr-2 text-sm font-medium text-brand-ink">
-                      <ChevronLeft size={16} aria-hidden="true" /> Volver
-                    </button>
-                  </div>
-                  <label className="flex items-center gap-2 h-11 px-3 rounded-xl border border-line bg-surface-2 text-ink-500 focus-within:border-brand">
-                    <Search size={16} aria-hidden="true" />
-                    <input type="search" value={catQuery} onChange={e => setCatQuery(e.target.value)}
-                      placeholder="Buscar (ej: luz, ropa…)" aria-label="Buscar categoría" {...textProps}
-                      className="flex-1 min-w-0 bg-transparent outline-none text-base sm:text-sm text-ink-900 placeholder:text-ink-500" />
-                  </label>
-                  <div className="mt-1 divide-y divide-line">
-                    {allGroups.map(({ root, subs }) => (
-                      <div key={root.id} className="py-2.5">
-                        <button type="button" onClick={() => pickFromAll(root.id)} aria-pressed={form.category_id === root.id}
-                          className="flex items-center gap-2.5 min-h-[40px] w-full text-left">
-                          <span className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                            style={{ background: `${root.color || '#888780'}1F`, color: root.color || '#888780' }}>
-                            <CategoryIcon name={root.icon} size={16} />
-                          </span>
-                          <span className={`text-sm font-semibold ${form.category_id === root.id ? 'text-brand-ink' : 'text-ink-900'}`}>{root.name}</span>
-                          {form.category_id === root.id && <Check size={16} className="text-brand-ink" aria-hidden="true" />}
-                        </button>
-                        {subs.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 pl-[42px] mt-1.5">
-                            {subs.map(s => (
-                              <button key={s.id} type="button" onClick={() => pickFromAll(root.id, s.id)}
-                                aria-pressed={form.subcategory_id === s.id}
-                                className={`h-9 px-3 rounded-full border text-[13px] whitespace-nowrap ${
-                                  form.subcategory_id === s.id
-                                    ? 'bg-brand-soft border-brand text-brand-ink font-medium'
-                                    : 'bg-surface border-line text-ink-700 hover:bg-surface-2 active:bg-surface-2'
-                                }`}>
-                                {s.name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {allGroups.length === 0 && (
-                      <p className="py-4 text-sm text-ink-500">Ninguna categoría se llama así.</p>
-                    )}
-                  </div>
-                </>
-              )}
-            </fieldset>
-          )}
-
-          {/* Fecha */}
-          <fieldset>
-            <legend className={label}>Fecha</legend>
-            <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
-              {dateChips.map(c => (
-                <button key={c.iso} type="button" onClick={() => { set('date', c.iso); setPickDate(false) }}
-                  aria-pressed={form.date === c.iso} className={chip(form.date === c.iso)}>
-                  {c.label}
-                </button>
-              ))}
-              <button type="button" onClick={() => setPickDate(true)}
-                aria-pressed={customDate} className={chip(customDate)}>
-                {customDate ? shortDay(form.date) : 'Otra fecha'}
-                <ChevronDown size={14} />
-              </button>
-            </div>
-            {(pickDate || customDate) && (
-              <input type="date" value={form.date} onChange={e => e.target.value && set('date', e.target.value)}
-                aria-label="Elegir fecha" className={`${textInput} mt-2`} {...textProps} />
-            )}
-            {outsideView && (
-              <p className="mt-2 rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn" role="status">
-                {isEdit ? 'Se va a mover a ' : 'Se va a guardar en '}
-                <b>{monthName(dateYear, dateMonth, selectedMonth.year)}</b>
-                {' · '}estás viendo {monthName(selectedMonth.year, selectedMonth.month, dateYear)}
-              </p>
-            )}
-          </fieldset>
-
-          {/* Cuenta (con una sola cuenta no hay nada que elegir) */}
-          {(activeAccounts.length > 1 || form.type === 'transfer') && (
-            <fieldset>
-              <legend className={label}>{form.type === 'transfer' ? 'Desde' : 'Cuenta'}</legend>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
-                {rankedAccounts.map(a => (
-                  <button key={a.id} type="button" onClick={() => setAccount(a.id)}
-                    aria-pressed={form.account_id === a.id} className={chip(form.account_id === a.id)}>
-                    {a.name}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-          )}
-          {form.type === 'transfer' && (
-            <fieldset>
-              <legend className={label}>Hacia</legend>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
-                {rankedAccounts.filter(a => a.id !== form.account_id).map(a => (
-                  <button key={a.id} type="button" onClick={() => set('transfer_to_account_id', a.id)}
-                    aria-pressed={form.transfer_to_account_id === a.id} className={chip(form.transfer_to_account_id === a.id)}>
-                    {a.name}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-          )}
-
-          {/* Más opciones */}
-          <div className="rounded-xl border border-line">
-            <button type="button" onClick={() => setMoreOpen(!moreOpen)} aria-expanded={moreOpen}
-              className="w-full min-h-[48px] flex items-center justify-between gap-3 px-3 py-2 text-left">
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-ink-900">
-                  Descripción{form.type === 'expense' ? ', cuotas' : ''}{form.type !== 'transfer' ? ', fijo' : ''} y más
-                </span>
-                {!moreOpen && extrasSummary && (
-                  <span className="block text-xs text-ink-500 truncate">{extrasSummary}</span>
-                )}
-              </span>
-              <ChevronDown size={18} className={`flex-shrink-0 text-ink-500 transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {moreOpen && (
-              <div className="px-3 pb-3 space-y-4 border-t border-line pt-3">
-                <div className="relative">
-                  <label htmlFor="qa-desc" className={label}>Descripción (opcional)</label>
-                  <input
-                    id="qa-desc"
-                    value={form.description}
-                    onChange={e => set('description', e.target.value)}
-                    onFocus={() => { setTextFocus(true); setDescFocus(true) }}
-                    onBlur={() => { setTextFocus(false); setTimeout(() => setDescFocus(false), 150) }}
-                    placeholder={catName ? `Si la dejás vacía: ${subName || catName}` : 'Ej: Carrefour, alquiler…'}
-                    autoComplete="off"
-                    className={textInput}
-                  />
-                  {suggestions.length > 0 && (
-                    <ul className="mt-1 rounded-xl border border-line bg-surface overflow-hidden" role="listbox" aria-label="Descripciones usadas antes">
-                      {suggestions.map(s => (
-                        <li key={s.text}>
-                          <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => applySuggestion(s)}
-                            className="w-full min-h-[44px] flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-surface-2 active:bg-surface-2 border-b border-line last:border-0">
-                            <span className="min-w-0">
-                              <span className="block text-sm text-ink-900 truncate">{s.text}</span>
-                              <span className="block text-xs text-ink-500 truncate">
-                                {categories.find(c => c.id === s.category_id)?.name || 'Sin categoría'}
-                                {' · '}{activeAccounts.find(a => a.id === s.account_id)?.name}
-                              </span>
-                            </span>
-                            <span className="num text-sm text-ink-700 flex-shrink-0">{formatCurrency(s.amount)}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {activePayments.length > 0 && (
-                  <fieldset>
-                    <legend className={label}>Medio de pago</legend>
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 sm:flex-wrap">
-                      {activePayments.map(p => (
-                        <button key={p.id} type="button"
-                          onClick={() => { paymentTouched.current = true; set('payment_method_id', form.payment_method_id === p.id ? '' : p.id) }}
-                          aria-pressed={form.payment_method_id === p.id} className={chip(form.payment_method_id === p.id)}>
-                          {p.name}
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-                )}
-
-                {/* Cuotas al crear */}
-                {form.type === 'expense' && !isEdit && (
-                  <fieldset>
-                    <legend className={label}>Cuotas (el monto es el de cada cuota)</legend>
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0 sm:flex-wrap">
-                      <button type="button" onClick={() => { set('installments', 1); setCustomInstallments(false) }}
-                        aria-pressed={form.installments === 1 && !customInstallments} className={chip(form.installments === 1 && !customInstallments)}>
-                        Sin cuotas
-                      </button>
-                      {INSTALLMENT_CHIPS.map(n => (
-                        <button key={n} type="button" onClick={() => { set('installments', n); setCustomInstallments(false) }}
-                          aria-pressed={form.installments === n && !customInstallments} className={chip(form.installments === n && !customInstallments)}>
-                          {n}
-                        </button>
-                      ))}
-                      <button type="button" onClick={() => setCustomInstallments(true)}
-                        aria-pressed={customInstallments} className={chip(customInstallments)}>
-                        Otra
-                      </button>
-                    </div>
-                    {customInstallments && (
-                      <input type="number" inputMode="numeric" min={2} max={120}
-                        value={form.installments > 1 ? form.installments : ''}
-                        onChange={e => set('installments', Math.min(120, Math.max(1, parseInt(e.target.value) || 1)))}
-                        placeholder="Cantidad de cuotas" aria-label="Cantidad de cuotas"
-                        className={`${textInput} mt-2`} {...textProps} />
-                    )}
-                    {form.installments > 24 && (
-                      <p className="text-xs text-warn mt-1.5">Se van a crear {form.installments} movimientos, uno por mes.</p>
-                    )}
-                  </fieldset>
-                )}
-
-                {/* Cuotas al editar: cambiar la cantidad y a qué cuotas aplicar. */}
-                {isEdit && form.type === 'expense' && (
-                  <div className="rounded-xl bg-surface-2 p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <label htmlFor="qa-edit-installments" className="text-sm text-ink-700">
-                        Cantidad de cuotas
-                        {origTotal > 1 && (
-                          <span className="block text-xs text-ink-500">Estás editando la cuota {editingNumber} de {origTotal}</span>
-                        )}
-                      </label>
-                      <input id="qa-edit-installments" type="number" inputMode="numeric" min={editingNumber} max={120}
-                        value={form.installments}
-                        onChange={e => set('installments', Math.min(120, Math.max(1, parseInt(e.target.value) || 1)))}
-                        className="w-20 h-11 rounded-lg border border-line bg-surface px-3 text-right text-base sm:text-sm outline-none focus:border-brand"
-                        {...textProps} />
-                    </div>
-                    {origTotal > 1 && (
-                      <label className="flex items-start gap-2 cursor-pointer">
-                        <input type="checkbox" checked={applyToAll} onChange={e => setApplyToAll(e.target.checked)} className="mt-1 w-4 h-4 accent-[var(--brand)]" />
-                        <span className="text-sm text-ink-700">
-                          Aplicar los cambios a todas las cuotas
-                          <span className="block text-xs text-ink-500">
-                            {applyToAll ? 'Monto, descripción, cuenta, categoría y fechas se copian a todas.' : 'Solo cambia esta cuota.'}
-                          </span>
-                        </span>
-                      </label>
-                    )}
-                    {form.installments !== origTotal && form.installments >= editingNumber && (
-                      <p className="text-xs text-pos font-medium">
-                        {form.installments > origTotal
-                          ? `Se ${form.installments - origTotal === 1 ? 'agrega 1 cuota' : `agregan ${form.installments - origTotal} cuotas`}, una por mes.`
-                          : `Se ${origTotal - form.installments === 1 ? 'borra la última cuota' : `borran las últimas ${origTotal - form.installments} cuotas`}.`}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {form.type !== 'transfer' && form.installments <= 1 && (
-                  <label className="flex items-center justify-between gap-3 cursor-pointer min-h-[44px]">
-                    <span className="text-sm text-ink-900">
-                      {form.type === 'expense' ? 'Gasto fijo' : 'Ingreso fijo'}
-                      <span className="block text-xs text-ink-500">Se repite todos los meses (expensas, luz, sueldo…)</span>
-                    </span>
-                    <input type="checkbox" role="switch" checked={form.is_recurring}
-                      onChange={e => set('is_recurring', e.target.checked)}
-                      className="w-5 h-5 flex-shrink-0 accent-[var(--brand)]" />
-                  </label>
-                )}
-
-                <div>
-                  <label htmlFor="qa-notes" className={label}>Notas</label>
-                  <textarea id="qa-notes" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)}
-                    className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-base sm:text-sm text-ink-900 outline-none focus:border-brand resize-none"
-                    {...textProps} />
-                </div>
-              </div>
-            )}
-          </div>
+        <form id="quick-add-form" onSubmit={e => { e.preventDefault(); if (view === 'main') save(false) }}>
+          {/* Las pantallas para elegir mantienen más o menos el alto de la carga,
+              así la hoja no salta al ir y volver. */}
+          {view === 'main' ? body : <div className="min-h-[68dvh] sm:min-h-[420px]">{body}</div>}
         </form>
       )}
     </Sheet>

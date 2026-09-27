@@ -8,7 +8,7 @@ import { X } from 'lucide-react'
 //
 // onRequestClose se llama con Escape, la X o tocando el fondo. Si hay algo
 // escrito, el que usa la hoja decide si pregunta antes de cerrar.
-export default function Sheet({ open, title, onRequestClose, header, footer, children, initialFocus }: {
+export default function Sheet({ open, title, onRequestClose, header, footer, children, initialFocus, compact = false }: {
   open: boolean
   title: string
   onRequestClose: () => void
@@ -18,6 +18,9 @@ export default function Sheet({ open, title, onRequestClose, header, footer, chi
   footer?: React.ReactNode
   children: React.ReactNode
   initialFocus?: React.RefObject<HTMLElement>
+  // Encabezado de una sola fila: la X a la izquierda y `header` al centro; el
+  // título queda solo para lectores de pantalla.
+  compact?: boolean
 }) {
   const titleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
@@ -79,18 +82,36 @@ export default function Sheet({ open, title, onRequestClose, header, footer, chi
         <div className="sm:hidden flex justify-center pt-2.5 pb-1" aria-hidden="true">
           <div className="w-10 h-1 rounded-full bg-ink-300" />
         </div>
-        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 pt-1 sm:pt-4 pb-2">
-          <h2 id={titleId} className="text-base font-semibold text-ink-900">{title}</h2>
-          <button
-            type="button"
-            onClick={() => closeRef.current()}
-            aria-label="Cerrar"
-            className="w-11 h-11 -mr-2.5 flex items-center justify-center rounded-full text-ink-500 hover:bg-surface-2 active:bg-surface-2"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        {header && <div className="px-4 sm:px-5 pb-2">{header}</div>}
+        {compact ? (
+          <div className="flex items-center gap-2 px-3 sm:px-4 pt-1 sm:pt-4 pb-2">
+            <h2 id={titleId} className="sr-only">{title}</h2>
+            <button
+              type="button"
+              onClick={() => closeRef.current()}
+              aria-label="Cerrar"
+              className="w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-full bg-surface-2 text-ink-700 hover:bg-muted active:bg-muted"
+            >
+              <X size={20} />
+            </button>
+            <div className="flex-1 min-w-0 flex justify-center">{header}</div>
+            <div className="w-11 flex-shrink-0" aria-hidden="true" />
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 pt-1 sm:pt-4 pb-2">
+              <h2 id={titleId} className="text-base font-semibold text-ink-900">{title}</h2>
+              <button
+                type="button"
+                onClick={() => closeRef.current()}
+                aria-label="Cerrar"
+                className="w-11 h-11 -mr-2.5 flex items-center justify-center rounded-full text-ink-500 hover:bg-surface-2 active:bg-surface-2"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            {header && <div className="px-4 sm:px-5 pb-2">{header}</div>}
+          </>
+        )}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-5">
           {children}
         </div>
