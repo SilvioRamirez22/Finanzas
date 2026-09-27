@@ -95,7 +95,8 @@ el atajo "Nuevo gasto" de la pantalla de inicio, que no hace nada.
 - ✅ D1/D2 (2026-09-27): `sql/INSTALAR_TODO.sql` alineado con producción (rescatado del PR #1 y
   corregido: las cuotas no se dividen, D1), probado sobre Postgres 16 junto con las migraciones.
   Los arreglos seguros de `FIXES.sql` quedaron como `sql/migrations/002_seguridad_y_saldos.sql`.
-  **Pendiente del lado de Supabase:** correr la 002.
+  ✅ La 002 se corrió en Supabase el 2026-09-27 (verificado: `transactions_full` con
+  `security_invoker=true` y `search_path=public` en las 6 funciones).
 - P3/P4: usar las RPC que ya existen y matar las 6 consultas en serie de presupuestos.
 
 ### Etapa 2 — Una sola pasada visual y de accesibilidad
@@ -128,9 +129,8 @@ acción, cumplimiento correcto (D3). Editor a pantalla completa con "sin asignar
 del mes anterior y sugerir por promedio; la primera vez viene prellenado. Tarjeta del plan en el
 Resumen y "Gasto contra el plan" en Seguimiento.
 Distinto de la spec: sin RPC nuevas (se calcula en el cliente con 3 consultas) y el editor usa el
-teclado numérico del sistema. **Pendiente del lado de Supabase:** correr
-`sql/migrations/001_presupuesto_por_mes.sql` (crea `month_plans`); hasta entonces el ingreso
-esperado y el ahorro no se guardan y la app lo avisa.
+teclado numérico del sistema. ✅ `sql/migrations/001_presupuesto_por_mes.sql` (crea `month_plans`)
+se corrió en Supabase el 2026-09-27.
 ✅ F3 (2026-09-22): "Cargar fijos" en el Resumen y en el plan. Propone los fijos del mes anterior
 que no aparecen (monto editable, mismo día del mes) y, como casi nada está marcado (D12), también
 lo que se repitió una vez por mes los últimos 3 meses con montos parecidos; esos vienen
@@ -184,6 +184,8 @@ el rumbo:
 - Sin ajuste por inflación por ahora. Tarjeta de crédito, en fase 2.
 - Orden de trabajo: **Etapa 1 primero**.
 
-Pendientes de tu lado (al 2026-09-27): correr en Supabase `sql/migrations/001_presupuesto_por_mes.sql`
-y `002_seguridad_y_saldos.sql`, en ese orden (las dos se pueden repetir sin romper nada); la URL
-pública de la app; y el `.env.local` si querés que levante la app acá.
+✅ Migraciones `sql/migrations/001_presupuesto_por_mes.sql` y `002_seguridad_y_saldos.sql` corridas
+en Supabase el 2026-09-27, en ese orden.
+
+Pendientes de tu lado (al 2026-09-27): la URL pública de la app; y el `.env.local` si querés que
+levante la app acá.
