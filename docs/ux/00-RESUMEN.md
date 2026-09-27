@@ -124,6 +124,15 @@ dispositivos); sin cola offline (guardaría datos en el navegador) y sin actuali
 el cartel "Nuevo gasto · N" al pasar el mouse. La tecla **N** abre la carga desde cualquier
 pantalla (no mientras se escribe en un campo, con Ctrl/Cmd/Alt ni con otro diálogo abierto). Hasta
 ahora en la compu solo se cargaba desde Movimientos o el Resumen.
+✅ (2026-09-27) Categoría en grilla de 4 por fila: las 7 más usadas + "Todas", que abre la lista
+entera (madres en orden alfabético con sus subcategorías y un buscador). Reemplaza a los chips, que
+con 19 categorías ocupaban media pantalla en el celular. Tocar una subcategoría desde "Todas" deja
+elegida también su madre.
+✅ (2026-09-27) `sql/migrations/003_agrupar_categorias.sql`: agrupa las categorías en madres
+(Alimentación, Servicios, Compras, Salud con Gym y Farmacia) y pasa los movimientos a
+"madre › subcategoría" sin cambiar los totales. **Pendiente:** correrla en Supabase. Ojo: cambiar
+"Subcategoría de" a mano en Categorías NO mueve los movimientos viejos (quedan fuera del Resumen y
+del Presupuesto); para reagrupar, una migración como la 003.
 
 ### Etapa 4 — Presupuesto (`05`)
 ✅ Fase 0 y 1 (2026-09-22). Topes por intervalo sobre `budgets` (sin tabla nueva): "desde este

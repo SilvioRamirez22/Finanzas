@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, LayoutGrid, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAppStore } from '@/store/useAppStore'
 import {
@@ -29,6 +29,7 @@ const INSTALLMENT_CHIPS = [3, 6, 12]
 const pad2 = (n: number) => String(n).padStart(2, '0')
 // "2026-09" de "2026-09-22"
 const monthKey = (iso: string) => iso.slice(0, 7)
+const longestWord = (s: string) => Math.max(...s.split(/\s+/).map(w => w.length))
 
 function addDaysISO(iso: string, days: number) {
   const [y, m, d] = iso.split('-').map(Number)
@@ -148,6 +149,7 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
   const [hints, setHints] = useState<QuickAddHints>(EMPTY_HINTS)
   const [moreOpen, setMoreOpen] = useState(false)
   const [allCats, setAllCats] = useState(false)
+  const [catQuery, setCatQuery] = useState('')
   const [pickDate, setPickDate] = useState(false)
   const [customInstallments, setCustomInstallments] = useState(false)
   const [textFocus, setTextFocus] = useState(false)
@@ -174,6 +176,7 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
     setInitial(start)
     setMoreOpen(!!transaction)
     setAllCats(false)
+    setCatQuery('')
     setPickDate(false)
     setCustomInstallments(!!transaction && ![1, ...INSTALLMENT_CHIPS].includes(start.installments))
     setConfirmDiscard(false)
@@ -263,11 +266,32 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
       .sort((a, b) => (hints.categoryUses[b.id] || 0) - (hints.categoryUses[a.id] || 0) || a.sort_order - b.sort_order)
   }, [categories, form.type, hints])
 
-  const TOP = 5
-  let shownCats: Category[] = allCats ? rootCats : rootCats.slice(0, TOP)
+  // Grilla de 4 por fila: las 7 más usadas + "Todas" (dos filas). Si entran
+  // todas en 8 lugares, no hace falta el botón.
+  const TOP = 7
+  const needsAll = rootCats.length > TOP + 1
+  let gridCats: Category[] = needsAll ? rootCats.slice(0, TOP) : rootCats
   // La elegida siempre a la vista, aunque no esté entre las más usadas.
   const selectedRoot = rootCats.find(c => c.id === form.category_id)
-  if (!allCats && selectedRoot && !shownCats.includes(selectedRoot)) shownCats = [...shownCats.slice(0, TOP - 1), selectedRoot]
+  if (needsAll && selectedRoot && !gridCats.includes(selectedRoot)) gridCats = [...gridCats.slice(0, TOP - 1), selectedRoot]
+
+  // "Todas": madres en orden alfabético con sus subcategorías; el buscador
+  // encuentra por madre o por subcategoría.
+  const allGroups = useMemo(() => {
+    const withSubs = categoriesWithSubs()
+    const q = catQuery.trim().toLowerCase()
+    return [...rootCats]
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+      .map(root => {
+        const subs = (withSubs.find(c => c.id === root.id)?.subcategories || [])
+          .filter(s => s.is_active)
+          .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+        if (!q || root.name.toLowerCase().includes(q)) return { root, subs }
+        const hits = subs.filter(s => s.name.toLowerCase().includes(q))
+        return hits.length ? { root, subs: hits } : null
+      })
+      .filter((g): g is { root: Category; subs: Category[] } => g !== null)
+  }, [rootCats, categories, catQuery])
 
   const subcats = useMemo(() => {
     const root = categoriesWithSubs().find(c => c.id === form.category_id)
@@ -278,6 +302,14 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
     setForm(f => f.category_id === id
       ? { ...f, category_id: '', subcategory_id: '' }
       : { ...f, category_id: id, subcategory_id: '' })
+  }
+
+  // Elegir desde "Todas": deja madre (y subcategoría, si se tocó una) y vuelve
+  // a la grilla.
+  function pickFromAll(rootId: string, subId = '') {
+    setForm(f => ({ ...f, category_id: rootId, subcategory_id: subId }))
+    setAllCats(false)
+    setCatQuery('')
   }
 
   // ---- Cuentas: las más usadas primero ----
@@ -594,37 +626,104 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
             )}
           </div>
 
-          {/* Categoría */}
+          {/* Categoría: grilla de 4 por fila con las más usadas, o la lista entera */}
           {form.type !== 'transfer' && (
             <fieldset>
-              <legend className={label}>Categoría</legend>
-              <div className="flex flex-wrap gap-2">
-                {shownCats.map(c => (
-                  <button key={c.id} type="button" onClick={() => pickCategory(c.id)}
-                    aria-pressed={form.category_id === c.id} className={chip(form.category_id === c.id)}>
-                    <span className="w-6 h-6 -ml-1 rounded-full flex items-center justify-center"
-                      style={{ background: `${c.color || '#888780'}1F`, color: c.color || '#888780' }}>
-                      <CategoryIcon name={c.icon} size={14} />
-                    </span>
-                    {c.name}
-                  </button>
-                ))}
-                {rootCats.length > TOP && (
-                  <button type="button" onClick={() => setAllCats(!allCats)} className={chip(false)} aria-expanded={allCats}>
-                    {allCats ? 'Menos' : `Más (${rootCats.length - TOP})`}
-                  </button>
-                )}
-              </div>
-              {subcats.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto no-scrollbar mt-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap" aria-label="Subcategoría (opcional)">
-                  {subcats.map(s => (
-                    <button key={s.id} type="button"
-                      onClick={() => set('subcategory_id', form.subcategory_id === s.id ? '' : s.id)}
-                      aria-pressed={form.subcategory_id === s.id} className={chip(form.subcategory_id === s.id)}>
-                      {s.name}
+              {!allCats ? (
+                <>
+                  <legend className={label}>Categoría</legend>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {gridCats.map(c => {
+                      const on = form.category_id === c.id
+                      return (
+                        <button key={c.id} type="button" onClick={() => pickCategory(c.id)} aria-pressed={on}
+                          className={`h-[72px] min-w-0 px-0.5 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-colors select-none ${
+                            on ? 'border-brand ring-1 ring-brand bg-brand-soft' : 'border-line bg-surface hover:bg-surface-2 active:bg-surface-2'
+                          }`}>
+                          <span className="w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center"
+                            style={{ background: `${c.color || '#888780'}1F`, color: c.color || '#888780' }}>
+                            <CategoryIcon name={c.icon} size={17} />
+                          </span>
+                          {/* Hasta dos renglones; una palabra muy larga ("Extraordinario")
+                              va un punto más chica para entrar entera. */}
+                          <span className={`max-w-full line-clamp-2 [hyphens:auto] text-center leading-[14px] ${
+                            longestWord(c.name) > 11 ? 'text-[11px]' : 'text-xs'
+                          } ${on ? 'text-brand-ink' : 'text-ink-900'}`}>{c.name}</span>
+                        </button>
+                      )
+                    })}
+                    {needsAll && (
+                      <button type="button" onClick={() => setAllCats(true)}
+                        className="h-[72px] min-w-0 px-0.5 rounded-2xl flex flex-col items-center justify-center gap-1 border border-dashed border-line-strong bg-surface-2 hover:bg-muted active:bg-muted">
+                        <span className="w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center bg-muted text-ink-700">
+                          <LayoutGrid size={17} aria-hidden="true" />
+                        </span>
+                        <span className="max-w-full truncate text-xs leading-[14px] text-ink-900">Todas ({rootCats.length})</span>
+                      </button>
+                    )}
+                  </div>
+                  {subcats.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar mt-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap" aria-label="Subcategoría (opcional)">
+                      {subcats.map(s => (
+                        <button key={s.id} type="button"
+                          onClick={() => set('subcategory_id', form.subcategory_id === s.id ? '' : s.id)}
+                          aria-pressed={form.subcategory_id === s.id} className={chip(form.subcategory_id === s.id)}>
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <legend className="sr-only">Categoría</legend>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-ink-500">Todas las categorías</span>
+                    <button type="button" onClick={() => { setAllCats(false); setCatQuery('') }}
+                      className="inline-flex items-center gap-1 h-9 px-2 -mr-2 text-sm font-medium text-brand-ink">
+                      <ChevronLeft size={16} aria-hidden="true" /> Volver
                     </button>
-                  ))}
-                </div>
+                  </div>
+                  <label className="flex items-center gap-2 h-11 px-3 rounded-xl border border-line bg-surface-2 text-ink-500 focus-within:border-brand">
+                    <Search size={16} aria-hidden="true" />
+                    <input type="search" value={catQuery} onChange={e => setCatQuery(e.target.value)}
+                      placeholder="Buscar (ej: luz, ropa…)" aria-label="Buscar categoría" {...textProps}
+                      className="flex-1 min-w-0 bg-transparent outline-none text-base sm:text-sm text-ink-900 placeholder:text-ink-500" />
+                  </label>
+                  <div className="mt-1 divide-y divide-line">
+                    {allGroups.map(({ root, subs }) => (
+                      <div key={root.id} className="py-2.5">
+                        <button type="button" onClick={() => pickFromAll(root.id)} aria-pressed={form.category_id === root.id}
+                          className="flex items-center gap-2.5 min-h-[40px] w-full text-left">
+                          <span className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{ background: `${root.color || '#888780'}1F`, color: root.color || '#888780' }}>
+                            <CategoryIcon name={root.icon} size={16} />
+                          </span>
+                          <span className={`text-sm font-semibold ${form.category_id === root.id ? 'text-brand-ink' : 'text-ink-900'}`}>{root.name}</span>
+                          {form.category_id === root.id && <Check size={16} className="text-brand-ink" aria-hidden="true" />}
+                        </button>
+                        {subs.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pl-[42px] mt-1.5">
+                            {subs.map(s => (
+                              <button key={s.id} type="button" onClick={() => pickFromAll(root.id, s.id)}
+                                aria-pressed={form.subcategory_id === s.id}
+                                className={`h-9 px-3 rounded-full border text-[13px] whitespace-nowrap ${
+                                  form.subcategory_id === s.id
+                                    ? 'bg-brand-soft border-brand text-brand-ink font-medium'
+                                    : 'bg-surface border-line text-ink-700 hover:bg-surface-2 active:bg-surface-2'
+                                }`}>
+                                {s.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {allGroups.length === 0 && (
+                      <p className="py-4 text-sm text-ink-500">Ninguna categoría se llama así.</p>
+                    )}
+                  </div>
+                </>
               )}
             </fieldset>
           )}
