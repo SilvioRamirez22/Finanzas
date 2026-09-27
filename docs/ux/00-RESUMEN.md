@@ -144,7 +144,7 @@ gasto (el de la subcategoría si tiene uno propio). ✅ 003 y 004 corridas en Su
 10 madres de gastos; quedaron vacías (0 movimientos) las subcategorías del alta Delivery, Restaurante,
 Supermercado, Gas, Internet y Streaming, y la categoría de ingresos "Ingresos" sin emoji.
 `sql/migrations/005_desactivar_subcategorias_sin_uso.sql` desactiva esas seis (solo si siguen sin
-movimientos). **Pendiente:** correrla en Supabase.
+movimientos). ✅ Corrida en Supabase el 2026-09-27: las seis quedaron desactivadas.
 
 ### Etapa 4 — Presupuesto (`05`)
 ✅ Fase 0 y 1 (2026-09-22). Topes por intervalo sobre `budgets` (sin tabla nueva): "desde este
