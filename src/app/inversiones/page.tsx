@@ -188,7 +188,8 @@ function InvestmentForm({ investment, onClose, onSuccess }: {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-surface w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-5 shadow-xl max-h-[90vh] overflow-y-auto">
+      <div role="dialog" aria-modal="true" aria-label={investment ? 'Editar inversión' : 'Nueva inversión'}
+        className="relative bg-surface w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-5 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold">{investment ? 'Editar inversión' : 'Nueva inversión'}</h2>
           <button onClick={onClose}><X size={18} className="text-ink-500" /></button>

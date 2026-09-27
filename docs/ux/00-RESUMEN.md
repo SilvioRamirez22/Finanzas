@@ -120,6 +120,10 @@ cuotas, fijo y notas, "Guardar y otro", deshacer al crear y al borrar (sin `conf
 Distinto de la spec: la última cuenta sale de Supabase y no de `localStorage` (vale en todos los
 dispositivos); sin cola offline (guardaría datos en el navegador) y sin actualización optimista
 (la recarga en segundo plano de la etapa 1 alcanza por ahora).
+✅ (2026-09-27) El botón "+" también en la compu: abajo a la derecha, igual que en el celular, con
+el cartel "Nuevo gasto · N" al pasar el mouse. La tecla **N** abre la carga desde cualquier
+pantalla (no mientras se escribe en un campo, con Ctrl/Cmd/Alt ni con otro diálogo abierto). Hasta
+ahora en la compu solo se cargaba desde Movimientos o el Resumen.
 
 ### Etapa 4 — Presupuesto (`05`)
 ✅ Fase 0 y 1 (2026-09-22). Topes por intervalo sobre `budgets` (sin tabla nueva): "desde este

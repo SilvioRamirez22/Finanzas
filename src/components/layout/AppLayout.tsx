@@ -88,6 +88,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Atajo N: abre la carga desde cualquier pantalla. No cuenta mientras se
+  // escribe en un campo, con Ctrl/Cmd/Alt (no pisa atajos del navegador) ni
+  // con otro diálogo abierto encima.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'n' && e.key !== 'N') return
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.defaultPrevented) return
+      const target = e.target as HTMLElement | null
+      if (target?.isContentEditable || target?.closest('input, textarea, select')) return
+      if (document.querySelector('[role="dialog"]')) return
+      e.preventDefault()
+      setQuickAddOpen(true)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [setQuickAddOpen])
+
   // Bloquear el scroll de fondo mientras el menú está abierto.
   useEffect(() => {
     if (!sheetOpen) return
@@ -203,23 +220,35 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* ================= CONTENIDO ================= */}
-      {/* pb grande en celular: deja lugar a la barra inferior y al botón "+". */}
+      {/* pb grande: deja lugar a la barra inferior (celular) y al botón "+". */}
       <main
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        className="max-w-[1400px] mx-auto px-3 md:px-6 py-4 md:py-5 pb-28 md:pb-5"
+        className="max-w-[1400px] mx-auto px-3 md:px-6 py-4 md:py-5 pb-28 md:pb-28"
       >
         {children}
       </main>
 
-      {/* ============ BOTÓN "+" (solo celular) ============ */}
-      <button
-        onClick={() => setQuickAddOpen(true)}
-        aria-label="Nuevo movimiento"
-        className="md:hidden fixed right-4 bottom-[76px] mb-safe z-40 w-14 h-14 rounded-full bg-brand text-white shadow-lg flex items-center justify-center active:bg-brand-hover transition-colors"
-      >
-        <Plus size={26} />
-      </button>
+      {/* ============ BOTÓN "+" ============ */}
+      {/* En el celular va arriba de la barra inferior; en la compu, en la esquina,
+          con un cartel al pasar el mouse que recuerda el atajo N. */}
+      <div className="group pointer-events-none fixed right-4 bottom-[76px] mb-safe md:right-8 md:bottom-8 z-40 flex items-center gap-3">
+        <span
+          aria-hidden="true"
+          className="hidden md:flex items-center gap-2 rounded-lg bg-ink-900 px-2.5 py-1.5 text-[13px] text-surface opacity-0 translate-x-1 transition group-hover:opacity-100 group-hover:translate-x-0 group-focus-within:opacity-100 group-focus-within:translate-x-0"
+        >
+          Nuevo gasto
+          <kbd className="rounded border border-ink-500 px-1.5 text-[11px] font-semibold font-sans">N</kbd>
+        </span>
+        <button
+          onClick={() => setQuickAddOpen(true)}
+          aria-label="Nuevo movimiento"
+          aria-keyshortcuts="N"
+          className="pointer-events-auto w-14 h-14 rounded-full bg-brand text-white shadow-lg flex items-center justify-center hover:bg-brand-hover active:bg-brand-hover transition-colors"
+        >
+          <Plus size={26} />
+        </button>
+      </div>
 
       {/* ============ BARRA INFERIOR (solo celular) ============ */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-line pb-safe">
@@ -256,7 +285,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {sheetOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex items-end">
           <div className="absolute inset-0 bg-black/40" onClick={() => setSheetOpen(false)} />
-          <div className="relative bg-surface w-full rounded-t-2xl shadow-xl animate-fade-in max-h-[85dvh] overflow-y-auto pb-safe">
+          <div role="dialog" aria-modal="true" aria-label="Más"
+            className="relative bg-surface w-full rounded-t-2xl shadow-xl animate-fade-in max-h-[85dvh] overflow-y-auto pb-safe">
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-line" />
             </div>
