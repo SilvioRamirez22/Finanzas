@@ -130,7 +130,7 @@ con 19 categorías ocupaban media pantalla en el celular. Tocar una subcategorí
 elegida también su madre.
 ✅ (2026-09-27) `sql/migrations/003_agrupar_categorias.sql`: agrupa las categorías en madres
 (Alimentación, Servicios, Compras, Salud con Gym y Farmacia) y pasa los movimientos a
-"madre › subcategoría" sin cambiar los totales. **Pendiente:** correrla en Supabase. Ojo: cambiar
+"madre › subcategoría" sin cambiar los totales. ✅ Corrida en Supabase el 2026-09-27. Ojo: cambiar
 "Subcategoría de" a mano en Categorías NO mueve los movimientos viejos (quedan fuera del Resumen y
 del Presupuesto); para reagrupar, una migración como la 003.
 ✅ (2026-09-27) Carga al estilo de la app de referencia que mandó Silvio: monto grande con ⌫ al lado,
@@ -140,7 +140,9 @@ cuadraditos con emoji y buscador; una madre con subcategorías muestra las suyas
 Reemplaza a la grilla de la misma fecha. Los emojis viven en `categories.icon` (un nombre de Tabler
 sigue funcionando: `CategoryIcon` distingue uno de otro); se eligen en Categorías y
 `sql/migrations/004_emojis_categorias.sql` pone los acordados. Movimientos muestra el emoji de cada
-gasto (el de la subcategoría si tiene uno propio). **Pendiente:** correr 003 y después 004.
+gasto (el de la subcategoría si tiene uno propio). ✅ 003 y 004 corridas en Supabase el 2026-09-27:
+10 madres de gastos; quedaron vacías (0 movimientos) las subcategorías del alta Delivery, Restaurante,
+Supermercado, Gas, Internet y Streaming, y la categoría de ingresos "Ingresos" sin emoji.
 
 ### Etapa 4 — Presupuesto (`05`)
 ✅ Fase 0 y 1 (2026-09-22). Topes por intervalo sobre `budgets` (sin tabla nueva): "desde este
