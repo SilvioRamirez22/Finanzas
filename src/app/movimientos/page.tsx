@@ -7,6 +7,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { formatCurrency } from '@/lib/format'
 import { exportTransactionsToExcel } from '@/lib/exportImport'
 import RecurringBadge from '@/components/RecurringBadge'
+import CategoryTile from '@/components/CategoryTile'
 import { ErrorState, SkeletonLine } from '@/components/ui/States'
 import { useMonthData } from '@/lib/useMonthData'
 import Sheet from '@/components/ui/Sheet'
@@ -353,6 +354,16 @@ function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
 }) {
   const isIncome = t.type === 'income'
   const canBeRecurring = t.type !== 'transfer'
+  // El emoji de la subcategoría si tiene uno propio; si no, el de la madre.
+  const sub = useAppStore(s => s.categories.find(c => c.id === t.subcategory_id))
+  const tile = (
+    <CategoryTile transfer={t.type === 'transfer'} size={36}
+      icon={sub?.icon && sub.icon !== 'tag' ? sub.icon : t.category_icon}
+      color={t.category_color} />
+  )
+  const catLabel = t.category_name
+    ? (t.subcategory_name ? `${t.category_name} › ${t.subcategory_name}` : t.category_name)
+    : null
   const recurringLabel = t.is_recurring ? 'Quitar de gastos fijos' : 'Marcar como gasto fijo'
 
   // Las columnas fijas (w-36 + w-32 + w-32 + flex-1) pedían unos 700px de ancho.
@@ -364,9 +375,8 @@ function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
       {/* ---------- Celular ---------- */}
       {/* Tocar el movimiento abre el formulario para corregirlo. */}
       <div onClick={onEdit} role="button" aria-label={`Editar ${t.description}`}
-        className="md:hidden flex items-start gap-3 px-4 py-3 border-b border-line active:bg-surface-2 cursor-pointer">
-        <div className="w-5 h-5 rounded flex-shrink-0 mt-0.5"
-          style={{ background: (t.category_color || '#D1D5DB') + '40' }} />
+        className="md:hidden flex items-center gap-3 px-4 py-2.5 border-b border-line active:bg-surface-2 cursor-pointer">
+        {tile}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-2">
@@ -376,9 +386,9 @@ function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
             </span>
           </div>
           <div className="flex items-center gap-1.5 mt-1 text-[11px] text-ink-500 min-w-0">
-            {t.category_name && (
-              <span className="px-1.5 py-0.5 rounded bg-muted text-ink-700 truncate max-w-[45%]">
-                {t.category_name}
+            {catLabel && (
+              <span className="px-1.5 py-0.5 rounded bg-muted text-ink-700 truncate max-w-[55%]">
+                {catLabel}
               </span>
             )}
             {t.is_recurring && <RecurringBadge />}
@@ -403,10 +413,7 @@ function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
       {/* ---------- Escritorio ---------- */}
       <div onClick={onEdit} title="Click para editar"
         className="hidden md:flex items-center gap-3 px-5 py-2.5 border-b border-line hover:bg-surface-2 group transition-colors cursor-pointer">
-        <div className="w-6 flex-shrink-0">
-          <div className="w-5 h-5 rounded"
-            style={{ background: (t.category_color || '#D1D5DB') + '40' }} />
-        </div>
+        {tile}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <p className="text-sm text-ink-900 truncate">{t.description}</p>
@@ -415,9 +422,9 @@ function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
           {showDate && <p className="text-[11px] text-ink-500">{t.date}</p>}
         </div>
         <div className="w-36 flex-shrink-0">
-          {t.category_name && (
+          {catLabel && (
             <span className="inline-block px-2 py-0.5 rounded text-xs text-ink-700 bg-muted truncate max-w-full">
-              {t.category_name}
+              {catLabel}
             </span>
           )}
         </div>

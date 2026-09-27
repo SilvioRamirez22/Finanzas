@@ -28,6 +28,8 @@ Vercel desde `main` en GitHub (`SilvioRamirez22/Finanzas`).
 - `src/components/ui/` — `Sheet` (diálogo), `States` (esqueleto y error).
 - `src/components/forms/QuickAddModal.tsx` — carga y edición de movimientos; aprende de
   `src/lib/quickAddHints.ts` (últimos 90 días en Supabase).
+- Íconos de categoría: `categories.icon` guarda un emoji (o un nombre viejo de Tabler);
+  `CategoryIcon` muestra cualquiera de los dos y `CategoryTile` es el cuadradito de color.
 - Seguimiento: `src/app/seguimiento` (carga), `src/components/seguimiento` (gráficos SVG a mano,
   sin librería), `src/lib/seguimiento.ts` (cálculos puros). Colores de gráficos: `--chart-*`,
   `--heat-*`, `--data-*` en `globals.css`.

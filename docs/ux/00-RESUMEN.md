@@ -133,6 +133,14 @@ elegida también su madre.
 "madre › subcategoría" sin cambiar los totales. **Pendiente:** correrla en Supabase. Ojo: cambiar
 "Subcategoría de" a mano en Categorías NO mueve los movimientos viejos (quedan fuera del Resumen y
 del Presupuesto); para reagrupar, una migración como la 003.
+✅ (2026-09-27) Carga al estilo de la app de referencia que mandó Silvio: monto grande con ⌫ al lado,
+"Agregar nota" (descripción, medio de pago, cuotas, fijo y notas), "desde {cuenta}", y abajo
+[fecha] [categoría] + teclado con ✓. La categoría se elige en una pantalla aparte: madres en
+cuadraditos con emoji y buscador; una madre con subcategorías muestra las suyas y "Solo «madre»".
+Reemplaza a la grilla de la misma fecha. Los emojis viven en `categories.icon` (un nombre de Tabler
+sigue funcionando: `CategoryIcon` distingue uno de otro); se eligen en Categorías y
+`sql/migrations/004_emojis_categorias.sql` pone los acordados. Movimientos muestra el emoji de cada
+gasto (el de la subcategoría si tiene uno propio). **Pendiente:** correr 003 y después 004.
 
 ### Etapa 4 — Presupuesto (`05`)
 ✅ Fase 0 y 1 (2026-09-22). Topes por intervalo sobre `budgets` (sin tabla nueva): "desde este
