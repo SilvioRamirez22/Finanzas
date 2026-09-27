@@ -92,7 +92,10 @@ el atajo "Nuevo gasto" de la pantalla de inicio, que no hace nada.
 - ✅ A2: aviso de mes en el formulario con "Usar 31 de agosto", y "Ver septiembre" en el aviso
   de guardado. Además, "hoy" se calculaba en UTC: de noche ya era el día siguiente.
 - ✅ D10 y X6 (commit `91bf5b4`).
-- D1/D2: confirmar contra producción y alinear (copy, API y SQL).
+- ✅ D1/D2 (2026-09-27): `sql/INSTALAR_TODO.sql` alineado con producción (rescatado del PR #1 y
+  corregido: las cuotas no se dividen, D1), probado sobre Postgres 16 junto con las migraciones.
+  Los arreglos seguros de `FIXES.sql` quedaron como `sql/migrations/002_seguridad_y_saldos.sql`.
+  **Pendiente del lado de Supabase:** correr la 002.
 - P3/P4: usar las RPC que ya existen y matar las 6 consultas en serie de presupuestos.
 
 ### Etapa 2 — Una sola pasada visual y de accesibilidad
@@ -156,7 +159,9 @@ En Seguimiento, "Próximos 6 meses": cuotas (exactas), ya cargado con fecha futu
 estimados, contra el ingreso promedio, y qué cuotas siguen y cuándo terminan.
 
 ### Etapa 6 — Lo demás
-Dark mode, íconos y atajos del PWA, resumen de tarjeta, generación de fijos, ajuste por
+✅ Íconos del PWA (2026-09-27, rescatados del PR #1; también el de iOS). Falta el atajo
+"Nuevo gasto" (`?quick=expense` no se lee).
+Dark mode, atajos del PWA, resumen de tarjeta, generación de fijos, ajuste por
 inflación, `ignoreBuildErrors: false` y limpieza de código muerto.
 
 ---
@@ -179,5 +184,6 @@ el rumbo:
 - Sin ajuste por inflación por ahora. Tarjeta de crédito, en fase 2.
 - Orden de trabajo: **Etapa 1 primero**.
 
-Pendientes de tu lado: la URL de producción, el `.env.local` si querés que levante la app acá,
-y la verificación SQL de 2 minutos (`06-PREGUNTAS.md` §25) que confirma D1 y D2.
+Pendientes de tu lado (al 2026-09-27): correr en Supabase `sql/migrations/001_presupuesto_por_mes.sql`
+y `002_seguridad_y_saldos.sql`, en ese orden (las dos se pueden repetir sin romper nada); la URL
+pública de la app; y el `.env.local` si querés que levante la app acá.

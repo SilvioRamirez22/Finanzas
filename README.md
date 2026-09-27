@@ -22,15 +22,17 @@
 
 ## Paso 2 — Ejecutar el schema SQL
 
-En Supabase → **SQL Editor**, ejecutar en orden:
+En Supabase → **SQL Editor**, en un proyecto **vacío**:
 
-```
-1. sql/01_schema.sql       ← Tablas, RLS, triggers
-2. sql/02_seed.sql         ← Función seed_user_defaults
-3. sql/03_views_functions.sql ← Vistas y funciones de consulta
-```
+1. Pegar y ejecutar `sql/INSTALAR_TODO.sql` completo (tablas, RLS, triggers, funciones y la
+   carga automática de categorías al registrarte).
+2. Ejecutar en orden los archivos de `sql/migrations/` (`001_…`, `002_…`).
 
-Verificar que no haya errores en ninguno.
+Verificar que no haya errores.
+
+> **Sobre la base que ya está en producción:** nunca correr `INSTALAR_TODO.sql`. Los cambios van
+> como migración numerada nueva en `sql/migrations/`, que se corre a mano una vez. Si se toca algo
+> desde el SQL Editor, bajarlo al repo: el repo es la fuente de verdad.
 
 ---
 
@@ -119,9 +121,9 @@ src/
 └── types/
     └── index.ts            ← Todos los tipos TypeScript
 sql/
-├── 01_schema.sql           ← Schema completo con RLS y triggers
-├── 02_seed.sql             ← Categorías y datos iniciales
-└── 03_views_functions.sql  ← Vistas y funciones SQL
+├── INSTALAR_TODO.sql       ← Instalación desde cero: tablas, RLS, triggers, funciones
+├── migrations/             ← Cambios sobre la base instalada, numerados, en orden
+└── VERIFICAR_ESTADO.sql    ← Consultas de solo lectura para revisar la base
 ```
 
 ---
