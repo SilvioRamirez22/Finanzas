@@ -7,6 +7,8 @@ import { formatCurrency } from '@/lib/format'
 import { Plus, Edit2, Trash2, X, Wallet, CreditCard, Building2, Smartphone, Scale } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Account, AccountType } from '@/types'
+import CarteraCard from '@/components/CarteraCard'
+import { useCartera } from '@/lib/useCartera'
 
 const typeLabels: Record<AccountType, string> = {
   cash: 'Efectivo',
@@ -38,6 +40,7 @@ export default function CuentasPage() {
   const [editing, setEditing] = useState<Account | null>(null)
   // Cuenta a la que se le está ajustando el saldo (null = nadie).
   const [adjusting, setAdjusting] = useState<Account | null>(null)
+  const cartera = useCartera()
 
   async function load() {
     setLoading(true)
@@ -77,6 +80,11 @@ export default function CuentasPage() {
         <div>
           <h1 className="text-xl font-semibold text-ink-900">Cuentas</h1>
           <p className="text-sm text-ink-500">Balance total: <span className={`font-semibold ${totalBalance >= 0 ? 'text-pos' : 'text-neg'}`}>{formatCurrency(totalBalance, 'ARS', true)}</span></p>
+          {cartera.summary && (
+            <p className="text-sm text-ink-500">
+              Patrimonio con inversiones: <span className="font-semibold text-ink-900">{formatCurrency(totalBalance + cartera.summary.totalArs, 'ARS', true)}</span>
+            </p>
+          )}
         </div>
         <button
           onClick={() => { setEditing(null); setShowForm(true) }}
@@ -103,6 +111,14 @@ export default function CuentasPage() {
           >
             <Scale size={15} /> Ajustar {sinConfigurar[0].name}
           </button>
+        </div>
+      )}
+
+      {/* Inversiones en VETA (Mi Cartera): suman al patrimonio, no al balance de cuentas */}
+      {cartera.link && (
+        <div className="mb-2">
+          <CarteraCard link={cartera.link} summary={cartera.summary} loading={cartera.loading}
+            error={cartera.error} onReload={cartera.reload} />
         </div>
       )}
 

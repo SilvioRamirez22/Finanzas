@@ -9,6 +9,7 @@ import { formatCurrency, todayISO } from '@/lib/format'
 import { Download, Upload, LogOut, ChevronRight, Database } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { ImportColumn } from '@/lib/exportImport'
+import CarteraConnect from '@/components/CarteraConnect'
 
 const APP_FIELDS = [
   { value: 'date', label: 'Fecha' },
@@ -107,6 +108,9 @@ export default function ConfiguracionPage() {
           </div>
         </div>
       </div>
+
+      {/* Conexión con Mi Cartera */}
+      <CarteraConnect />
 
       {/* Exportación */}
       <div className="bg-surface rounded-2xl border border-line p-4">

@@ -6,6 +6,8 @@ import { formatCurrency, formatDate, formatPct, todayISO } from '@/lib/format'
 import { Plus, TrendingUp, TrendingDown, Edit2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Investment, InvestmentType } from '@/types'
+import CarteraCard from '@/components/CarteraCard'
+import { useCartera } from '@/lib/useCartera'
 
 const typeLabels: Record<InvestmentType, string> = {
   stock: 'Acciones',
@@ -21,6 +23,7 @@ export default function InversionesPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Investment | null>(null)
+  const cartera = useCartera()
 
   async function load() {
     setLoading(true)
@@ -51,7 +54,13 @@ export default function InversionesPage() {
         </button>
       </div>
 
-      {/* Resumen */}
+      {/* Cartera de VETA, en vivo desde Mi Cartera */}
+      <div className="mb-3">
+        <CarteraCard link={cartera.link} summary={cartera.summary} loading={cartera.loading}
+          error={cartera.error} onReload={cartera.reload} />
+      </div>
+
+      {/* Resumen de lo cargado a mano */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         <div className="bg-surface rounded-2xl border border-line p-4">
           <p className="text-xs text-ink-500 mb-1">Invertido</p>
