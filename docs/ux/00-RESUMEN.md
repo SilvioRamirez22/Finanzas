@@ -225,5 +225,5 @@ cuentas + valor de la cartera. El valor en pesos lo calcula Mi Cartera (sus dól
 balance de cuentas de Finanzas no cambia. Se conecta pegando en Configuración el código que genera
 Mi Cartera (Ajustes → Conectar con Finanzas); es de solo lectura y se revoca desde allá.
 
-⏳ Falta correr `sql/migrations/006_conexion_cartera.sql` en Supabase (y la 0006 de Mi Cartera en el
+✅ `sql/migrations/006_conexion_cartera.sql` corrida en Supabase el 2026-09-28 (y la 0006 de Mi Cartera en el
 Supabase de Mi Cartera, más su `SUPABASE_SERVICE_ROLE_KEY` en Vercel).
