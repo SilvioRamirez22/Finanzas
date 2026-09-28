@@ -1,4 +1,4 @@
--- 002 · Conexión con Mi Cartera (github.com/SilvioRamirez22/Cartera)
+-- 006 · Conexión con Mi Cartera (github.com/SilvioRamirez22/Cartera)
 --
 -- Se corre UNA vez en Supabase: SQL Editor → pegar todo → Run. Es seguro correrlo de nuevo.
 --

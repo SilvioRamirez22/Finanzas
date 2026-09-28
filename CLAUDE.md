@@ -37,7 +37,7 @@ Vercel desde `main` en GitHub (`SilvioRamirez22/Finanzas`).
   "solo" un mes sin tocar el pasado, resumen del mes). Nunca escribir `budgets` por fuera de
   `planBudgetWrites` + `applyBudgetWrites`.
 - Mi Cartera (app de inversiones, repo `SilvioRamirez22/Cartera`): `src/lib/cartera.ts` guarda en
-  `cartera_link` (migración 002) la dirección y el código de solo lectura que se genera allá, y pide
+  `cartera_link` (migración 006) la dirección y el código de solo lectura que se genera allá, y pide
   `/api/finanzas` para el valor de la cartera. `useCartera` + `CarteraCard` lo muestran en Inversiones
   y Cuentas (patrimonio con inversiones); se conecta en Configuración (`CarteraConnect`).
 - SQL: los cambios de base van numerados en `sql/migrations/` y se corren a mano en el SQL Editor

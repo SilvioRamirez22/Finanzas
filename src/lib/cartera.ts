@@ -1,6 +1,6 @@
 // lib/cartera.ts — conexión con Mi Cartera (la app de inversiones).
 // Mi Cartera genera un código de solo lectura (Ajustes → Conectar con Finanzas) con la forma
-// "https://<mi-cartera>#mc_…". Acá se guarda en Supabase (tabla cartera_link, migración 002)
+// "https://<mi-cartera>#mc_…". Acá se guarda en Supabase (tabla cartera_link, migración 006)
 // y se usa para pedir el resumen: patrimonio, invertido, liquidez y variación del día.
 import { createClient } from './supabase/client'
 
@@ -29,7 +29,7 @@ export function parseCarteraCode(code: string): CarteraLink | null {
   return m ? { base_url: m[1], token: m[2] } : null
 }
 
-/** El vínculo guardado; null si no hay o si falta correr la migración 002. */
+/** El vínculo guardado; null si no hay o si falta correr la migración 006. */
 export async function getCarteraLink(): Promise<CarteraLink | null> {
   const { data, error } = await createClient().from('cartera_link').select('base_url, token').maybeSingle()
   if (error) return null
@@ -42,7 +42,7 @@ export async function saveCarteraLink(link: CarteraLink) {
     .upsert({ ...link, updated_at: new Date().toISOString() })
   if (error) {
     throw new Error(/cartera_link/.test(error.message)
-      ? 'Falta correr la migración 002 en Supabase (sql/migrations/002_conexion_cartera.sql)'
+      ? 'Falta correr la migración 006 en Supabase (sql/migrations/006_conexion_cartera.sql)'
       : error.message)
   }
 }

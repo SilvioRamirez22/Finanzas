@@ -214,3 +214,16 @@ en Supabase el 2026-09-27, en ese orden.
 
 Pendientes de tu lado (al 2026-09-27): la URL pública de la app; y el `.env.local` si querés que
 levante la app acá.
+
+---
+
+## Conexión con Mi Cartera (2026-09-28)
+
+La cartera de inversiones (app Mi Cartera, repo `SilvioRamirez22/Cartera`) aparece en Finanzas:
+tarjeta en **Inversiones** y en **Cuentas**, más la línea "Patrimonio con inversiones" = balance de
+cuentas + valor de la cartera. El valor en pesos lo calcula Mi Cartera (sus dólares van al MEP); el
+balance de cuentas de Finanzas no cambia. Se conecta pegando en Configuración el código que genera
+Mi Cartera (Ajustes → Conectar con Finanzas); es de solo lectura y se revoca desde allá.
+
+⏳ Falta correr `sql/migrations/006_conexion_cartera.sql` en Supabase (y la 0006 de Mi Cartera en el
+Supabase de Mi Cartera, más su `SUPABASE_SERVICE_ROLE_KEY` en Vercel).
