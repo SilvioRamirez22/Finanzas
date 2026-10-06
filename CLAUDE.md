@@ -28,6 +28,9 @@ Vercel desde `main` en GitHub (`SilvioRamirez22/Finanzas`).
 - `src/components/ui/` — `Sheet` (diálogo), `States` (esqueleto y error).
 - `src/components/forms/QuickAddModal.tsx` — carga y edición de movimientos; aprende de
   `src/lib/quickAddHints.ts` (últimos 90 días en Supabase).
+- Cuotas: `create_installments` (SQL) las crea una por mes; `src/lib/installments.ts` calcula esas
+  fechas igual (fin de mes incluido) para `updateInstallments` y para la lista de vencimientos
+  (`InstallmentSchedule`) de la carga.
 - Íconos de categoría: `categories.icon` guarda un emoji (o un nombre viejo de Tabler);
   `CategoryIcon` muestra cualquiera de los dos y `CategoryTile` es el cuadradito de color.
 - Seguimiento: `src/app/seguimiento` (carga), `src/components/seguimiento` (gráficos SVG a mano,

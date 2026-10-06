@@ -5,6 +5,7 @@ import type {
   Account, Category, Budget, PaymentMethod, Investment,
   MonthSummary, CategoryExpense, MonthlyEvolution, SearchFilters
 } from '@/types'
+import { planInstallmentDates, type InstallmentRowDate } from './installments'
 
 const sb = () => createClient()
 
@@ -119,17 +120,16 @@ export async function updateTransactionFromForm(id: string, form: TransactionFor
 
 // ---- Cuotas ----
 
-const pad2 = (n: number) => String(n).padStart(2, '0')
-
-// Suma meses a "YYYY-MM-DD" igual que Postgres con INTERVAL '1 month':
-// si el día no existe en el mes destino (31 de febrero), usa el último.
-function addMonthsISO(iso: string, months: number) {
-  const [y, m, d] = iso.split('-').map(Number)
-  const total = y * 12 + (m - 1) + months
-  const ny = Math.floor(total / 12)
-  const nm = (total % 12) + 1
-  const last = new Date(ny, nm, 0).getDate()
-  return `${ny}-${pad2(nm)}-${pad2(Math.min(d, last))}`
+// Las cuotas de un grupo con su fecha, para mostrar cuándo vence cada una.
+// parentId: el id de la primera cuota.
+export async function getInstallmentGroup(parentId: string) {
+  const { data, error } = await sb()
+    .from('transactions')
+    .select('id, installment_number, date')
+    .or(`id.eq.${parentId},parent_transaction_id.eq.${parentId}`)
+    .order('installment_number', { ascending: true })
+  if (error) throw error
+  return data as InstallmentRowDate[]
 }
 
 // "Heladera (3/12)" -> "Heladera"
@@ -157,13 +157,9 @@ export async function updateInstallments(
   if (error) throw error
   const rows = data as Transaction[]
   const byNumber = new Map(rows.map(r => [r.installment_number, r]))
-  const parent = byNumber.get(1) || edited
   const base = stripInstallmentSuffix(form.description)
   const amount = parseFloat(form.amount)
-  // Si no se tocó la fecha, cada cuota conserva la suya y las nuevas siguen a
-  // la primera. Recalcular desde la cuota editada correría fechas ya ajustadas
-  // a fin de mes (una compra del 31 tiene cuotas el 28 o el 30).
-  const dateUnchanged = form.date === edited.date
+  const dates = planInstallmentDates(rows, edited, form.date, newTotal, applyToAll)
 
   const toDelete = rows.filter(r => r.installment_number > newTotal).map(r => r.id)
   if (toDelete.length > 0) {
@@ -186,9 +182,7 @@ export async function updateInstallments(
       payment_method_id: fromForm ? form.payment_method_id || null : row!.payment_method_id,
       notes: fromForm ? form.notes || null : row!.notes,
       amount: fromForm ? amount : row!.amount,
-      date: row && (dateUnchanged || !fromForm)
-        ? row.date
-        : dateUnchanged ? addMonthsISO(parent.date, i - 1) : addMonthsISO(form.date, i - k),
+      date: dates[i - 1],
       description: newTotal > 1 ? `${desc} (${i}/${newTotal})` : desc,
       installments_total: newTotal,
       installment_number: i,

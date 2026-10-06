@@ -145,6 +145,13 @@ gasto (el de la subcategoría si tiene uno propio). ✅ 003 y 004 corridas en Su
 Supermercado, Gas, Internet y Streaming, y la categoría de ingresos "Ingresos" sin emoji.
 `sql/migrations/005_desactivar_subcategorias_sin_uso.sql` desactiva esas seis (solo si siguen sin
 movimientos). **Pendiente:** correrla en Supabase.
+✅ (2026-10-06) Vencimientos de las cuotas: al elegir cuotas, la carga lista la fecha de cada una
+(una por mes desde la fecha del gasto, con el ajuste a fin de mes de la base) y debajo del monto
+dice cuándo vence la última. Al abrir una cuota ya cargada, la edición muestra las fechas de todo
+el grupo, marca la que se está editando y cuántas quedan; si se cambia la cantidad o la fecha, la
+lista muestra lo que se va a guardar (`src/lib/installments.ts`, el mismo cálculo que usa
+`updateInstallments`). Es la fecha de cada cuota en la app, no el vencimiento del resumen de la
+tarjeta: eso llega con el ciclo de la tarjeta (F2, fase 2).
 
 ### Etapa 4 — Presupuesto (`05`)
 ✅ Fase 0 y 1 (2026-09-22). Topes por intervalo sobre `budgets` (sin tabla nueva): "desde este

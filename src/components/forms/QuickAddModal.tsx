@@ -6,12 +6,14 @@ import toast from 'react-hot-toast'
 import { useAppStore } from '@/store/useAppStore'
 import {
   createTransaction, updateTransactionFromForm, updateInstallments,
-  deleteTransaction, deleteInstallmentGroup,
+  deleteTransaction, deleteInstallmentGroup, getInstallmentGroup,
 } from '@/lib/api'
+import { installmentDates, planInstallmentDates, type InstallmentRowDate } from '@/lib/installments'
 import { getQuickAddHints, suggestDescriptions, EMPTY_HINTS, type QuickAddHints, type DescriptionHint } from '@/lib/quickAddHints'
 import { todayISO, formatCurrency } from '@/lib/format'
 import Sheet from '@/components/ui/Sheet'
 import Keypad, { BackspaceButton } from './Keypad'
+import InstallmentSchedule, { dueLabel } from './InstallmentSchedule'
 import CategoryIcon, { isEmojiIcon } from '@/components/CategoryIcon'
 import CategoryTile from '@/components/CategoryTile'
 import type { TransactionFormData, TransactionFull, TransactionType, Category } from '@/types'
@@ -165,6 +167,8 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
   const [savedTick, setSavedTick] = useState(false)
   // Al editar cuotas: copiar los cambios a todo el grupo o solo a esta cuota.
   const [applyToAll, setApplyToAll] = useState(true)
+  // Al editar: las cuotas del grupo con su fecha (null mientras cargan).
+  const [groupRows, setGroupRows] = useState<InstallmentRowDate[] | null>(null)
   const amountInputRef = useRef<HTMLInputElement>(null)
   const paymentTouched = useRef(false)
   const accountTouched = useRef(false)
@@ -191,6 +195,15 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
     accountTouched.current = false
 
     let cancelled = false
+    // Para mostrar los vencimientos al editar hacen falta las fechas de todo el
+    // grupo; un gasto sin cuotas es su propia (única) cuota.
+    const inGroup = !!transaction && transaction.installments_total > 1
+    setGroupRows(transaction && !inGroup ? [transaction] : null)
+    if (inGroup) {
+      getInstallmentGroup(transaction.parent_transaction_id || transaction.id)
+        .then(rows => { if (!cancelled) setGroupRows(rows) })
+        .catch(e => console.error('Error cargando las cuotas:', e))
+    }
     // Cuenta por defecto: la última usada para gastos (sale de Supabase, así
     // vale en todos los dispositivos). Sin datos, la más usada o la primera.
     function applyDefaults(h: QuickAddHints) {
@@ -330,6 +343,13 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
   // ---- Cuotas al editar ----
   const origTotal = transaction?.installments_total ?? 1
   const editingNumber = origTotal > 1 ? transaction!.installment_number : 1
+
+  // ---- Vencimiento de cada cuota: las fechas que se van a guardar ----
+  const dueDates = form.type !== 'expense' || form.installments <= 1 || !/^\d{4}-\d{2}-\d{2}$/.test(form.date) ? null
+    : !transaction ? installmentDates(form.date, form.installments)
+    : groupRows && form.installments >= editingNumber
+      ? planInstallmentDates(groupRows, transaction, form.date, form.installments, applyToAll)
+      : null
 
   // ---- Descripción ----
   const suggestions = descFocus ? suggestDescriptions(hints, form.type, form.description) : []
@@ -658,6 +678,7 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
       ) : form.installments > 1 && amountNum > 0 ? (
         <p className="text-xs text-ink-500 num">
           {form.installments} cuotas × $ {formatAmount(form.amount)} = {formatCurrency(amountNum * form.installments)}
+          {dueDates && <span className="whitespace-nowrap"> · la última el {dueLabel(dueDates[dueDates.length - 1], today)}</span>}
         </p>
       ) : null}
 
@@ -881,6 +902,11 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
           {form.installments > 24 && (
             <p className="text-xs text-warn mt-1.5">Se van a crear {form.installments} movimientos, uno por mes.</p>
           )}
+          {dueDates && (
+            <div className="mt-3 rounded-xl bg-surface-2 p-3">
+              <InstallmentSchedule dates={dueDates} today={today} />
+            </div>
+          )}
         </fieldset>
       )}
 
@@ -917,6 +943,11 @@ export default function QuickAddModal({ open, onClose, onSuccess, transaction }:
                 ? `Se ${form.installments - origTotal === 1 ? 'agrega 1 cuota' : `agregan ${form.installments - origTotal} cuotas`}, una por mes.`
                 : `Se ${origTotal - form.installments === 1 ? 'borra la última cuota' : `borran las últimas ${origTotal - form.installments} cuotas`}.`}
             </p>
+          )}
+          {dueDates && (
+            <div className="border-t border-line pt-2">
+              <InstallmentSchedule dates={dueDates} today={today} current={editingNumber} />
+            </div>
           )}
         </div>
       )}
