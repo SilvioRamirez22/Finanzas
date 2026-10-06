@@ -195,6 +195,13 @@ grupo desplegable renglón por renglón. Es el mismo cálculo que "Próximos 6 m
 (`commitmentsForMonth` en `src/lib/seguimiento.ts`), así los dos dicen lo mismo y vale para
 cualquier mes futuro, no solo los 6 próximos. "Disponible hoy" pasa a una línea chica al final: en
 un mes futuro no dice nada de ese mes, y Silvio tiene plata en cuentas que no están en la app.
+✅ (2026-10-06) Lo mismo en el **mes en curso**: "Falta pagar en {mes}" (cuotas que vencen después de
+hoy, fijos sin cargar y lo cargado con fecha futura). Las dos tarjetas suman los **ingresos** del mes
+(lo cobrado + lo cargado para más adelante + los ingresos fijos sin cargar, estimados con el último
+monto) y cierran con **"Te queda libre"** = ingresos − ya gastado − falta pagar, o "Te falta" si da
+negativo. Sin ingresos fijos marcados, en vez del número dice cómo marcar el sueldo (↻ en
+Movimientos). "Disponible hoy" quedó como una línea al final en todos los meses (`BalanceLine`; la
+tarjeta grande con la lista de cuentas se borró: las cuentas están en Cuentas).
 
 ### Etapa 6 — Lo demás
 ✅ Íconos del PWA (2026-09-27, rescatados del PR #1; también el de iOS). Falta el atajo

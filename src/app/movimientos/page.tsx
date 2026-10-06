@@ -364,7 +364,9 @@ function Row({ t, onDelete, onToggleRecurring, onEdit, showDate }: {
   const catLabel = t.category_name
     ? (t.subcategory_name ? `${t.category_name} › ${t.subcategory_name}` : t.category_name)
     : null
-  const recurringLabel = t.is_recurring ? 'Quitar de gastos fijos' : 'Marcar como gasto fijo'
+  const recurringLabel = isIncome
+    ? (t.is_recurring ? 'Quitar de ingresos fijos' : 'Marcar como ingreso fijo')
+    : (t.is_recurring ? 'Quitar de gastos fijos' : 'Marcar como gasto fijo')
 
   // Las columnas fijas (w-36 + w-32 + w-32 + flex-1) pedían unos 700px de ancho.
   // En un celular de 360px eso estiraba TODA la página y dejaba el contenido

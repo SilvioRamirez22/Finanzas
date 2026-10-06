@@ -36,8 +36,10 @@ Vercel desde `main` en GitHub (`SilvioRamirez22/Finanzas`).
 - Seguimiento: `src/app/seguimiento` (carga), `src/components/seguimiento` (gráficos SVG a mano,
   sin librería), `src/lib/seguimiento.ts` (cálculos puros). Colores de gráficos: `--chart-*`,
   `--heat-*`, `--data-*` en `globals.css`.
-- Comprometido en un mes futuro: `commitmentsForMonth` (`src/lib/seguimiento.ts`) lo calcula igual que
-  "Próximos 6 meses"; el Resumen lo muestra con `CommittedCard` en lugar de "Disponible hoy".
+- Lo que falta pagar y cobrar en el mes en curso o uno futuro: `commitmentsForMonth`
+  (`src/lib/seguimiento.ts`), el mismo cálculo que "Próximos 6 meses". El Resumen lo muestra primero
+  con `CommittedCard` (con "te queda libre" = ingresos − gastado − falta pagar); el saldo de hoy es
+  solo una línea al final (`BalanceLine`), porque hay cuentas que no están en la app.
 - Presupuesto: `src/lib/budget.ts` (cálculos puros: tope vigente por mes, escribir "desde" o
   "solo" un mes sin tocar el pasado, resumen del mes). Nunca escribir `budgets` por fuera de
   `planBudgetWrites` + `applyBudgetWrites`.
