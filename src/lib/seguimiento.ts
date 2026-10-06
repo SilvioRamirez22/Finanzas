@@ -199,6 +199,65 @@ interface RecentLike {
 const norm = (s: string) => s.replace(/\s*\(\d+\/\d+\)\s*$/, '').trim().toLowerCase()
 const strip = (s: string) => s.replace(/\s*\(\d+\/\d+\)\s*$/, '').trim()
 
+// Fijos de referencia: el último monto de cada gasto fijo del mes actual o el
+// anterior. Son los que se asume que se repiten en los meses que vienen.
+type FixedRef = Map<string, { description: string; amount: number; date: string }>
+function fixedReference(recent: RecentLike[]): FixedRef {
+  const ref: FixedRef = new Map()
+  for (const t of recent) {
+    if (!t.is_recurring || t.type !== 'expense' || t.installments_total > 1 || t.status === 'cancelled') continue
+    const k = norm(t.description)
+    const prev = ref.get(k)
+    if (!prev || t.date > prev.date) ref.set(k, { description: strip(t.description), amount: Number(t.amount), date: t.date })
+  }
+  return ref
+}
+
+// Lo comprometido en un mes futuro, renglón por renglón.
+export interface CommitItem {
+  key: string
+  description: string
+  amount: number
+  installment?: string   // "3/12"
+}
+
+export interface MonthCommitments {
+  installments: CommitItem[]    // cuotas con fecha en el mes (exactas)
+  fixedLoaded: CommitItem[]     // gastos fijos ya cargados con fecha en el mes
+  otherLoaded: CommitItem[]     // otros gastos ya cargados con fecha en el mes
+  fixedEstimated: CommitItem[]  // fijos de referencia que en el mes todavía no están (estimado)
+  fixedCount: number            // cuántos fijos de referencia hay
+}
+
+export const sumItems = (items: CommitItem[]) => items.reduce((s, i) => s + i.amount, 0)
+
+function commitmentsWith(future: FutureLike[], ref: FixedRef, year: number, month: number): MonthCommitments {
+  const key = `${year}-${pad(month)}`
+  const byAmount = (a: CommitItem, b: CommitItem) => b.amount - a.amount
+  const inMonth = future.filter(t => t.type === 'expense' && t.date.startsWith(key))
+  const item = (t: FutureLike): CommitItem => ({
+    key: t.id, description: strip(t.description), amount: Number(t.amount),
+    installment: t.installments_total > 1 ? `${t.installment_number}/${t.installments_total}` : undefined,
+  })
+  const loaded = inMonth.filter(t => !(t.installments_total > 1))
+  const present = new Set(inMonth.map(t => norm(t.description)))
+  const fixedEstimated: CommitItem[] = []
+  ref.forEach((v, k) => { if (!present.has(k)) fixedEstimated.push({ key: `est:${k}`, description: v.description, amount: v.amount }) })
+  return {
+    installments: inMonth.filter(t => t.installments_total > 1).map(item).sort(byAmount),
+    fixedLoaded: loaded.filter(t => t.is_recurring).map(item).sort(byAmount),
+    otherLoaded: loaded.filter(t => !t.is_recurring).map(item).sort(byAmount),
+    fixedEstimated: fixedEstimated.sort(byAmount),
+    fixedCount: ref.size,
+  }
+}
+
+// future: movimientos con fecha posterior a hoy. recent: el mes actual y el
+// anterior. Es el mismo cálculo que "Próximos 6 meses" de Seguimiento.
+export function commitmentsForMonth(future: FutureLike[], recent: RecentLike[], year: number, month: number) {
+  return commitmentsWith(future, fixedReference(recent), year, month)
+}
+
 // future: movimientos con fecha posterior a hoy. recent: el mes actual y el
 // anterior, de donde salen los fijos que se asume que se repiten.
 export function buildOutlook(future: FutureLike[], recent: RecentLike[], months = 6, today = new Date()) {
@@ -208,22 +267,12 @@ export function buildOutlook(future: FutureLike[], recent: RecentLike[], months 
     keys.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, year: d.getFullYear(), month: d.getMonth() + 1 })
   }
 
-  // Fijos de referencia: el último monto de cada gasto fijo del mes actual o el anterior.
-  const fixedRef = new Map<string, { amount: number; date: string }>()
-  for (const t of recent) {
-    if (!t.is_recurring || t.type !== 'expense' || t.installments_total > 1 || t.status === 'cancelled') continue
-    const k = norm(t.description)
-    const prev = fixedRef.get(k)
-    if (!prev || t.date > prev.date) fixedRef.set(k, { amount: Number(t.amount), date: t.date })
-  }
-
+  const fixedRef = fixedReference(recent)
   const out: OutlookMonth[] = keys.map(k => {
-    const inMonth = future.filter(t => t.type === 'expense' && t.date.startsWith(k.key))
-    const installments = inMonth.filter(t => t.installments_total > 1).reduce((s, t) => s + Number(t.amount), 0)
-    const loaded = inMonth.filter(t => !(t.installments_total > 1)).reduce((s, t) => s + Number(t.amount), 0)
-    const present = new Set(inMonth.map(t => norm(t.description)))
-    let fixedEstimate = 0
-    fixedRef.forEach((v, desc) => { if (!present.has(desc)) fixedEstimate += v.amount })
+    const c = commitmentsWith(future, fixedRef, k.year, k.month)
+    const installments = sumItems(c.installments)
+    const loaded = sumItems(c.fixedLoaded) + sumItems(c.otherLoaded)
+    const fixedEstimate = sumItems(c.fixedEstimated)
     return { ...k, installments, loaded, fixedEstimate, total: installments + loaded + fixedEstimate }
   })
 

@@ -189,6 +189,12 @@ dirección; solo en las pantallas que dependen del mes. Estados de mes futuro y 
 Se borraron `MonthNav` y `PeriodSelector` (sin uso).
 En Seguimiento, "Próximos 6 meses": cuotas (exactas), ya cargado con fecha futura y fijos
 estimados, contra el ingreso promedio, y qué cuotas siguen y cuándo terminan.
+✅ (2026-10-06) Resumen de un mes que todavía no empezó: lo primero es **"Comprometido en {mes}"**
+(cuotas, gastos fijos ya cargados + estimados, y otros cargados con fecha de ese mes), con cada
+grupo desplegable renglón por renglón. Es el mismo cálculo que "Próximos 6 meses" de Seguimiento
+(`commitmentsForMonth` en `src/lib/seguimiento.ts`), así los dos dicen lo mismo y vale para
+cualquier mes futuro, no solo los 6 próximos. "Disponible hoy" pasa a una línea chica al final: en
+un mes futuro no dice nada de ese mes, y Silvio tiene plata en cuentas que no están en la app.
 
 ### Etapa 6 — Lo demás
 ✅ Íconos del PWA (2026-09-27, rescatados del PR #1; también el de iOS). Falta el atajo

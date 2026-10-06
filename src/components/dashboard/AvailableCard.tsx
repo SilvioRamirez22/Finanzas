@@ -21,11 +21,14 @@ export function balancesToday(accounts: Account[], future: FutureTransaction[]) 
   return new Map(accounts.map(acc => [acc.id, Number(acc.current_balance) + (back.get(acc.id) || 0)]))
 }
 
-export default function AvailableCard({ accounts, future, unconfigured, mainCurrency = 'ARS' }: {
+// compact: una sola línea, para los meses que todavía no empezaron (ahí lo
+// importante es lo comprometido, no el saldo de hoy).
+export default function AvailableCard({ accounts, future, unconfigured, mainCurrency = 'ARS', compact = false }: {
   accounts: Account[]
   future: FutureTransaction[] | null
   unconfigured: boolean
   mainCurrency?: string
+  compact?: boolean
 }) {
   const active = accounts.filter(a => a.is_active)
   const today = balancesToday(active, future || [])
@@ -38,6 +41,16 @@ export default function AvailableCard({ accounts, future, unconfigured, mainCurr
   const otherFuture = futureExpenses.filter(t => !(t.installments_total > 1)).reduce((s, t) => s + Number(t.amount), 0)
   const committed = installments + otherFuture
   const sign = (n: number) => (n < 0 ? '−' : '')
+
+  if (compact) {
+    return (
+      <Link href="/cuentas"
+        className="flex items-center justify-between gap-3 bg-surface rounded-2xl border border-line px-4 py-3 text-sm hover:bg-surface-2 active:bg-surface-2">
+        <span className="text-ink-500">{unconfigured ? 'Movimiento acumulado' : 'Disponible hoy'} en cuentas</span>
+        <span className={`num flex-shrink-0 ${total < 0 ? 'text-neg' : 'text-ink-700'}`}>{sign(total)}{formatCurrency(Math.abs(total))}</span>
+      </Link>
+    )
+  }
 
   return (
     <section className="bg-surface rounded-2xl border border-line p-4 md:p-5">

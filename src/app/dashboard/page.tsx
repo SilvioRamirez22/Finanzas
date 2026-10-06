@@ -1,8 +1,8 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { getTransactions, getExpensesByCategory, getFutureTransactions } from '@/lib/api'
+import { getTransactions, getExpensesByCategory, getFutureTransactions, getTransactionsLite } from '@/lib/api'
 import { useAppStore } from '@/store/useAppStore'
 import { formatCurrency, todayISO } from '@/lib/format'
 import RecurringBadge from '@/components/RecurringBadge'
@@ -13,6 +13,8 @@ import { pendingFixed, isFixed } from '@/lib/fixed'
 import LoadFixedSheet from '@/components/forms/LoadFixedSheet'
 import AttentionCard, { type AttentionItem } from '@/components/dashboard/AttentionCard'
 import AvailableCard from '@/components/dashboard/AvailableCard'
+import CommittedCard from '@/components/dashboard/CommittedCard'
+import { commitmentsForMonth } from '@/lib/seguimiento'
 import type { TransactionFull, CategoryExpense } from '@/types'
 
 const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -37,16 +39,23 @@ async function loadMonth(year: number, month: number) {
   const cur = monthRange(year, month)
   const pm = prevMonth(year, month)
   const prev = monthRange(pm.year, pm.month)
-  const [curTx, prevTx, curCats, prevCats, future] = await Promise.all([
+  // En un mes futuro hace falta el mes actual y el anterior: de ahí salen los
+  // gastos fijos que se estiman (igual que "Próximos 6 meses" de Seguimiento).
+  const now = new Date()
+  const isFuture = cur.from > monthRange(now.getFullYear(), now.getMonth() + 1).to
+  const realPrev = prevMonth(now.getFullYear(), now.getMonth() + 1)
+  const [curTx, prevTx, curCats, prevCats, future, recent] = await Promise.all([
     getTransactions({ date_from: cur.from, date_to: cur.to }, 5000, 0),
     getTransactions({ date_from: prev.from, date_to: prev.to }, 5000, 0),
     getExpensesByCategory(cur.from, cur.to),
     getExpensesByCategory(prev.from, prev.to),
     // Lo que tiene fecha después de hoy, para separar el disponible de lo comprometido.
     getFutureTransactions(todayISO()),
+    isFuture ? getTransactionsLite(monthRange(realPrev.year, realPrev.month).from, todayISO()) : null,
   ])
   return {
     future,
+    recent,
     curTx: curTx.data || [],
     prevTx: prevTx.data || [],
     cats: (curCats || []).filter(c => c.total > 0),
@@ -151,6 +160,12 @@ export default function DashboardPage() {
   // movimiento: en vez de un resultado engañoso, qué hay comprometido y qué hacer.
   const monthState: 'future' | 'empty' | 'normal' =
     planProgress === 0 ? 'future' : txCount === 0 ? 'empty' : 'normal'
+
+  // En un mes futuro, lo primero es cuánto ya está comprometido (no el saldo de hoy).
+  const commitments = useMemo(
+    () => data?.recent ? commitmentsForMonth(data.future, data.recent, year, month) : null,
+    [data, year, month]
+  )
 
   // ---- Atención: lo que pide hacer algo, de lo más grave a lo menos ----
   const catName = (id: string) => categories.find(c => c.id === id)?.name || 'Sin categoría'
@@ -407,9 +422,16 @@ export default function DashboardPage() {
       {/* ===== COLUMNA DERECHA ===== */}
       <div className="contents lg:block lg:space-y-4">
 
-        {/* Disponible hoy: lo primero en el celular */}
+        {/* Lo primero en el celular: disponible hoy, o en un mes que todavía no
+            empezó, cuánto ya está comprometido (el saldo pasa a una línea abajo). */}
         <div className="order-2 lg:order-none">
-          <AvailableCard accounts={accounts} future={data?.future ?? null} unconfigured={saldosSinConfigurar} />
+          {monthState !== 'future' ? (
+            <AvailableCard accounts={accounts} future={data?.future ?? null} unconfigured={saldosSinConfigurar} />
+          ) : commitments ? (
+            <CommittedCard year={year} month={month} data={commitments} />
+          ) : (
+            <CardSkeleton big lines={3} />
+          )}
         </div>
 
         {!data ? (
@@ -565,6 +587,12 @@ export default function DashboardPage() {
           </div>
           </>
         )}
+
+        {monthState === 'future' && data && (
+          <div className="order-8 lg:order-none">
+            <AvailableCard compact accounts={accounts} future={data?.future ?? null} unconfigured={saldosSinConfigurar} />
+          </div>
+        )}
       </div>
 
       <LoadFixedSheet open={loadingFixed} onClose={() => setLoadingFixed(false)} year={year} month={month} />
@@ -667,9 +695,10 @@ function EmptyMonth({ state, month, committed, onAdd, onLoadFixed }: {
         {state === 'future' ? `${mes.charAt(0).toUpperCase()}${mes.slice(1)} todavía no empezó` : `Todavía no hay movimientos en ${mes}`}
       </h2>
       <p className="text-sm text-ink-700 mt-1">
-        {committed > 0
-          ? <>Ya hay <b className="num">{formatCurrency(committed)}</b> comprometidos en cuotas y fijos.</>
-          : state === 'future' ? 'Podés dejar cargados los fijos y armar el plan desde ahora.' : 'Cargá el primero o traé los fijos del mes anterior.'}
+        {/* En un mes futuro lo comprometido está en su propia tarjeta. */}
+        {state === 'future' ? 'Podés dejar cargados los fijos y armar el plan desde ahora.'
+          : committed > 0 ? <>Ya hay <b className="num">{formatCurrency(committed)}</b> comprometidos en cuotas y fijos.</>
+          : 'Cargá el primero o traé los fijos del mes anterior.'}
       </p>
       <div className="flex flex-wrap gap-2 mt-4">
         {state === 'empty' && (
